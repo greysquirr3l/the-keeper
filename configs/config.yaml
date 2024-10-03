@@ -2,6 +2,7 @@ discord:
   token: ${DISCORD_BOT_TOKEN}
   client_id: ${DISCORD_CLIENT_ID}
   client_secret: ${DISCORD_CLIENT_SECRET}
-  redirect_url: http://yourserver.com/oauth2/callback
+  redirect_url: ${RAILWAY_PUBLIC_DOMAIN}/oauth2/callback
 server:
+  hostname: ${RAILWAY_PUBLIC_DOMAIN}
   port: ${PORT}

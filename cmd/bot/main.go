@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -24,10 +23,19 @@ func main() {
 }
 
 func run() error {
-	// Define command-line flags
-	var port string
-	flag.StringVar(&port, "port", "8080", "HTTP server port")
-	flag.Parse()
+	// Check for the Railway `PORT` environment variable
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Fallback to default port if not set
+	}
+
+	// Check for Railway `RAILWAY_PUBLIC_DOMAIN` environment variable
+	publicDomain := os.Getenv("RAILWAY_PUBLIC_DOMAIN")
+	if publicDomain == "" {
+		publicDomain = "http://localhost:" + port // Fallback to local address if not set
+	}
+
+	log.Infof("Bot is running at: %s", publicDomain)
 
 	// Load configuration (YAML)
 	config, err := bot.LoadConfig("configs/config.yaml")
@@ -72,7 +80,7 @@ func startHTTPServer(ctx context.Context, port string, keeperBot *bot.Bot) *http
 	mux.HandleFunc("/oauth2/callback", keeperBot.HandleOAuth2Callback)
 
 	server := &http.Server{
-		Addr:    "0.0.0.0:" + port,
+		Addr:    ":" + port,
 		Handler: mux,
 	}
 

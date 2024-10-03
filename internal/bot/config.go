@@ -15,6 +15,7 @@ type Config struct {
 		ClientSecret string `yaml:"client_secret"`
 		RedirectURL  string `yaml:"redirect_url"`
 		Enabled      bool   `yaml:"enabled"`
+		Host         string `yaml:host`
 	} `yaml:"discord"`
 	Server struct {
 		Port string `yaml:"port"`
