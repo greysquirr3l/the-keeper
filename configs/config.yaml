@@ -1,0 +1,7 @@
+discord:
+  token: ${DISCORD_BOT_TOKEN}
+  client_id: ${DISCORD_CLIENT_ID}
+  client_secret: ${DISCORD_CLIENT_SECRET}
+  redirect_url: http://yourserver.com/oauth2/callback
+server:
+  port: "8080"
