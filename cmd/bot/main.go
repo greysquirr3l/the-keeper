@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -22,38 +23,39 @@ func main() {
 }
 
 func run() error {
-	// Initialize logger
-	setupLogger()
+	// Define command-line flags
+	var port string
+	flag.StringVar(&port, "port", "8080", "HTTP server port")
+	flag.Parse()
 
-	// Load configuration
+	// Load configuration (YAML)
 	config, err := bot.LoadConfig("configs/config.yaml")
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Create a new bot instance
+	// Create a new bot instance (delegating to bot package)
 	keeperBot, err := bot.NewBot(config)
 	if err != nil {
 		return fmt.Errorf("failed to create bot: %w", err)
 	}
 
-	// Create a context for graceful shutdown
+	// Start the HTTP server in a goroutine
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Start HTTP server (runs independently)
-	server := startHTTPServer(ctx, config.Port, keeperBot)
+	server := startHTTPServer(ctx, port, keeperBot)
 
-	// Start the bot in a separate goroutine, Discord is optional
-	go func() {
-		err := keeperBot.Start(ctx)
-		if err != nil {
-			log.WithError(err).Error("Failed to start bot")
-			// You can continue without Discord functionality but keep the HTTP server running.
-		}
-	}()
+	// Optionally start the bot in a separate goroutine if Discord is enabled
+	if config.Discord.Enabled {
+		go func() {
+			if err := keeperBot.Start(ctx); err != nil {
+				log.WithError(err).Error("Failed to start bot")
+			}
+		}()
+	}
 
-	// Wait for shutdown signal
+	// Listen for system signals (e.g., SIGINT, SIGTERM)
 	shutdownSignal := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownSignal
@@ -62,16 +64,11 @@ func run() error {
 	return shutdown(ctx, server, keeperBot)
 }
 
-func setupLogger() {
-	log.SetFormatter(&logrus.JSONFormatter{})
-	log.SetLevel(logrus.InfoLevel)
-}
-
-func startHTTPServer(ctx context.Context, port string, bot *bot.Bot) *http.Server {
+func startHTTPServer(ctx context.Context, port string, keeperBot *bot.Bot) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleRoot)
-	mux.HandleFunc("/healthz", bot.HealthCheckHandler())
-	mux.HandleFunc("/oauth2/callback", bot.HandleOAuth2Callback) // Handle OAuth2 callback
+	mux.HandleFunc("/healthz", keeperBot.HealthCheckHandler())
+	mux.HandleFunc("/oauth2/callback", keeperBot.HandleOAuth2Callback)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -92,7 +89,7 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Welcome to the Keeper Bot!")
 }
 
-func shutdown(ctx context.Context, server *http.Server, bot *bot.Bot) error {
+func shutdown(ctx context.Context, server *http.Server, keeperBot *bot.Bot) error {
 	log.Info("Shutting down server...")
 
 	shutdownCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -102,10 +99,10 @@ func shutdown(ctx context.Context, server *http.Server, bot *bot.Bot) error {
 		log.WithError(err).Error("Server forced to shutdown")
 	}
 
-	if err := bot.Shutdown(); err != nil {
+	if err := keeperBot.Shutdown(); err != nil {
 		log.WithError(err).Error("Error shutting down bot")
 	}
 
-	log.Info("Server exiting")
+	log.Info("Server exited successfully")
 	return nil
 }
