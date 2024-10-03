@@ -4,4 +4,4 @@ discord:
   client_secret: ${DISCORD_CLIENT_SECRET}
   redirect_url: http://yourserver.com/oauth2/callback
 server:
-  port: "8080"
+  port: ${PORT}
