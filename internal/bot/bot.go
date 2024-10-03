@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"os"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 )
 
 // Bot structure
@@ -18,32 +15,6 @@ type Bot struct {
 	Session      *discordgo.Session
 	Logger       *logrus.Logger
 	shutdownChan chan struct{}
-}
-
-// Config structure to load YAML config
-type Config struct {
-	Port    string
-	Discord struct {
-		Token   string `yaml:"token"`
-		Enabled bool   `yaml:"enabled"`
-	} `yaml:"discord"`
-}
-
-// LoadConfig loads the configuration from a YAML file
-func LoadConfig(filename string) (*Config, error) {
-	config := &Config{}
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open config file: %w", err)
-	}
-	defer file.Close()
-
-	decoder := yaml.NewDecoder(file)
-	err = decoder.Decode(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode YAML: %w", err)
-	}
-	return config, nil
 }
 
 // NewBot creates a new bot instance

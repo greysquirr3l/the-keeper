@@ -51,8 +51,7 @@ func run() error {
 	if config.Discord.Enabled {
 		go func() {
 			if err := keeperBot.Start(ctx); err != nil {
-				log.WithError(err).Error("Failed to start Discord bot. Continuing without Discord...")
-				// Continue without Discord bot if it fails
+				log.WithError(err).Error("Failed to start bot")
 			}
 		}()
 	}
@@ -73,7 +72,7 @@ func startHTTPServer(ctx context.Context, port string, keeperBot *bot.Bot) *http
 	mux.HandleFunc("/oauth2/callback", keeperBot.HandleOAuth2Callback)
 
 	server := &http.Server{
-		Addr:    ":" + port,
+		Addr:    "0.0.0.0:" + port,
 		Handler: mux,
 	}
 
