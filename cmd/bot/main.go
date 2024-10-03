@@ -1,89 +1,111 @@
-// cmd/bot/main.go
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/greysquirr3l/keeper-bot/internal/bot"
+	"github.com/greysquirr3l/keeper-app/internal/bot"
 	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.New()
 
 func main() {
-	// Load config
+	if err := run(); err != nil {
+		log.Fatalf("Application error: %v", err)
+	}
+}
+
+func run() error {
+	// Initialize logger
+	setupLogger()
+
+	// Load configuration
 	config, err := bot.LoadConfig("configs/config.yaml")
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Set up HTTP server
-	http.HandleFunc("/", rootHandler)
-	http.HandleFunc("/healthz", healthHandler)
-	http.HandleFunc("/oauth2/callback", oauth2CallbackHandler)
+	// Create a new bot instance
+	keeperBot, err := bot.NewBot(config)
+	if err != nil {
+		return fmt.Errorf("failed to create bot: %w", err)
+	}
 
+	// Create a context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start HTTP server (runs independently)
+	server := startHTTPServer(ctx, config.Port, keeperBot)
+
+	// Start the bot in a separate goroutine, Discord is optional
 	go func() {
-		log.Infof("Starting HTTP server on port %s", config.Server.Port)
-		if err := http.ListenAndServe(":"+config.Server.Port, nil); err != nil {
-			log.Fatalf("Failed to start server: %v", err)
+		err := keeperBot.Start(ctx)
+		if err != nil {
+			log.WithError(err).Error("Failed to start bot")
+			// You can continue without Discord functionality but keep the HTTP server running.
 		}
 	}()
 
-	// Start Discord Bot
-	if err := startDiscordBot(config); err != nil {
-		log.Fatalf("Failed to start Discord bot: %v", err)
-	}
+	// Wait for shutdown signal
+	shutdownSignal := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
+	<-shutdownSignal
 
-	// Graceful shutdown on interrupt signal
-	quit := make(chan os.Signal, 1)
-	<-quit
+	// Graceful shutdown
+	return shutdown(ctx, server, keeperBot)
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Hello from the Keeper Bot!")
+func setupLogger() {
+	log.SetFormatter(&logrus.JSONFormatter{})
+	log.SetLevel(logrus.InfoLevel)
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Healthy!")
+func startHTTPServer(ctx context.Context, port string, bot *bot.Bot) *http.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handleRoot)
+	mux.HandleFunc("/healthz", bot.HealthCheckHandler())
+	mux.HandleFunc("/oauth2/callback", bot.HandleOAuth2Callback) // Handle OAuth2 callback
+
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
+	}
+
+	go func() {
+		log.WithField("port", port).Info("Starting HTTP server")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.WithError(err).Error("HTTP server error")
+		}
+	}()
+
+	return server
 }
 
-func oauth2CallbackHandler(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		http.Error(w, "No code provided", http.StatusBadRequest)
-		return
-	}
-	fmt.Fprintf(w, "Received code: %s", code)
-	// Here you would exchange the code for a token using the OAuth2 flow
+func handleRoot(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "Welcome to the Keeper Bot!")
 }
 
-func startDiscordBot(cfg *bot.Config) error {
-	discord, err := discordgo.New("Bot " + cfg.Discord.Token)
-	if err != nil {
-		return fmt.Errorf("Error creating Discord session: %v", err)
+func shutdown(ctx context.Context, server *http.Server, bot *bot.Bot) error {
+	log.Info("Shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.WithError(err).Error("Server forced to shutdown")
 	}
 
-	discord.AddHandler(messageCreate)
-	discord.Identify.Intents = discordgo.IntentsGuildMessages
-
-	err = discord.Open()
-	if err != nil {
-		return fmt.Errorf("Error opening Discord session: %v", err)
+	if err := bot.Shutdown(); err != nil {
+		log.WithError(err).Error("Error shutting down bot")
 	}
 
-	log.Info("Bot is now running. Press CTRL+C to exit.")
+	log.Info("Server exiting")
 	return nil
-}
-
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.ID == s.State.User.ID {
-		return
-	}
-	if m.Content == "!ping" {
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
-	}
 }
