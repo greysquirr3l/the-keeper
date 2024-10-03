@@ -26,3 +26,6 @@ go.work.sum
 
 # players file
 players.yml
+
+allcode.txt
+copy_code.sh

@@ -21,7 +21,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN go build -o keeper-bot ./cmd/bot/main.go
+RUN go build -o the-keeper ./cmd/bot/main.go
 
 # Stage 2: Run the Go app in a lightweight container
 FROM alpine:3.18
@@ -33,7 +33,7 @@ RUN apk --no-cache add ca-certificates tzdata sqlite-libs
 WORKDIR /app
 
 # Create a directory for the database files
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data2
 
 # Set environment variable for Railway volume mount path
 ENV RAILWAY_VOLUME_MOUNT_PATH="/app/data2"
@@ -49,4 +49,4 @@ COPY configs/config.yaml ./configs/config.yaml
 EXPOSE 8080
 
 # Define the entry point for the container to run the bot
-ENTRYPOINT ["./keeper-bot"]
+ENTRYPOINT ["./the-keeper"]

@@ -10,7 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/greysquirr3l/keeper-app/internal/bot"
+	"the-keeper/internal/bot"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -50,7 +51,8 @@ func run() error {
 	if config.Discord.Enabled {
 		go func() {
 			if err := keeperBot.Start(ctx); err != nil {
-				log.WithError(err).Error("Failed to start bot")
+				log.WithError(err).Error("Failed to start Discord bot. Continuing without Discord...")
+				// Continue without Discord bot if it fails
 			}
 		}()
 	}
