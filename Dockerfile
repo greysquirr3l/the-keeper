@@ -39,7 +39,7 @@ RUN mkdir -p /app/data2
 ENV RAILWAY_VOLUME_MOUNT_PATH="/app/data2"
 
 # Copy the compiled binary from the builder stage
-COPY --from=builder /app/keeper-bot .
+COPY --from=builder /app/the-keeper .
 
 # Copy configuration files
 # COPY configs/production/commands.yaml ./configs/production/commands.yaml
