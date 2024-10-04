@@ -31,12 +31,6 @@ func main() {
 	}
 
 	if config.Discord.Enabled {
-		if err := bot.InitDiscord(config.Discord.Token, logger); err != nil {
-			logger.Errorf("Error initializing Discord: %v", err)
-		}
-	}
-
-	if config.Discord.Enabled {
 		err := bot.InitDiscord(config.Discord.Token, logger)
 		if err != nil {
 			logger.Errorf("Error initializing Discord: %v", err)

@@ -15,17 +15,29 @@ var (
 
 func InitDiscord(token string, logger *logrus.Logger) error {
 	discordLogger = logger
+	discordLogger.Info("Initializing Discord bot...")
+
+	// Enable discordgo debug logging
+	discordgo.Logger = func(msgL, caller int, format string, a ...interface{}) {
+		discordLogger.Debugf(format, a...)
+	}
+
 	var err error
+	discordLogger.Info("Creating new Discord session...")
 	discordSession, err = discordgo.New("Bot " + token)
 	if err != nil {
 		return fmt.Errorf("error creating Discord session: %w", err)
 	}
 
-	// Set the intents
-	discordSession.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
+	discordLogger.Info("Setting up intents...")
+	discordSession.Identify.Intents = discordgo.IntentsGuilds |
+		discordgo.IntentsGuildMessages |
+		discordgo.IntentsMessageContent
 
+	discordLogger.Info("Adding message handler...")
 	discordSession.AddHandler(messageCreate)
 
+	discordLogger.Info("Opening Discord connection...")
 	err = discordSession.Open()
 	if err != nil {
 		return fmt.Errorf("error opening connection: %w", err)
@@ -46,6 +58,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		discordLogger.Errorf("Failed to load command config: %v", err)
 		return
 	}
+
+	discordLogger.Debugf("Received message: %s", m.Content)
 
 	HandleCommand(s, m, commandConfig)
 }
@@ -68,6 +82,7 @@ func IsAdmin(s *discordgo.Session, guildID, userID string) bool {
 
 func CloseDiscord() error {
 	if discordSession != nil {
+		discordLogger.Info("Closing Discord session...")
 		return discordSession.Close()
 	}
 	return nil
