@@ -76,7 +76,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, config *Com
 		return
 	}
 
-	if !checkCooldown(m.Author.ID, cmdName, cmd.Cooldown) {
+	if !CheckCooldown(m.Author.ID, cmdName, cmd.Cooldown) {
 		SendMessage(s, m.ChannelID, "This command is on cooldown. Please wait before using it again.")
 		return
 	}
@@ -106,7 +106,7 @@ func handleGenericCommand(s *discordgo.Session, m *discordgo.MessageCreate, args
 		return
 	}
 
-	if !checkCooldown(m.Author.ID, fmt.Sprintf("%s:%s", cmd.Usage, subCmdName), subCmd.Cooldown) {
+	if !CheckCooldown(m.Author.ID, fmt.Sprintf("%s:%s", cmd.Usage, subCmdName), subCmd.Cooldown) {
 		SendMessage(s, m.ChannelID, "This subcommand is on cooldown. Please wait before using it again.")
 		return
 	}
@@ -114,6 +114,43 @@ func handleGenericCommand(s *discordgo.Session, m *discordgo.MessageCreate, args
 	// Here you would implement the logic for each subcommand
 	// For now, we'll just send a message with the subcommand description
 	SendMessage(s, m.ChannelID, fmt.Sprintf("Executing subcommand: %s\nDescription: %s", subCmdName, subCmd.Description))
+}
+
+func LoadCommandConfig(filename string) (*CommandConfig, error) {
+	cmdLogger.Debugf("Attempting to load command config from: %s", filename)
+
+	// Check if the path exists
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			cmdLogger.Errorf("Command config file does not exist: %s", filename)
+			return nil, fmt.Errorf("command config file does not exist: %s", filename)
+		}
+		cmdLogger.Errorf("Error checking command config file: %v", err)
+		return nil, fmt.Errorf("error checking command config file: %w", err)
+	}
+
+	// Check if it's a directory
+	if fileInfo.IsDir() {
+		cmdLogger.Errorf("Expected a file, but got a directory: %s", filename)
+		return nil, fmt.Errorf("expected a file, but got a directory: %s", filename)
+	}
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		cmdLogger.Errorf("Error reading command config file: %v", err)
+		return nil, fmt.Errorf("error reading command config file: %w", err)
+	}
+
+	var config CommandConfig
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		cmdLogger.Errorf("Error unmarshaling command config: %v", err)
+		return nil, fmt.Errorf("error unmarshaling command config: %w", err)
+	}
+
+	cmdLogger.Debug("Command config loaded successfully")
+	return &config, nil
 }
 
 func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
@@ -166,54 +203,4 @@ func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []
 
 func SetCommandLogger(logger *logrus.Logger) {
 	cmdLogger = logger
-}
-
-func LoadCommandConfig(filename string) (*CommandConfig, error) {
-	cmdLogger.Debugf("Attempting to load command config from: %s", filename)
-
-	// Check if the file exists
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		cmdLogger.Errorf("Command config file does not exist: %s", filename)
-		return nil, fmt.Errorf("command config file does not exist: %s", filename)
-	}
-
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		cmdLogger.Errorf("Error reading command config file: %v", err)
-		return nil, fmt.Errorf("error reading command config file: %w", err)
-	}
-
-	var config CommandConfig
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		cmdLogger.Errorf("Error unmarshaling command config: %v", err)
-		return nil, fmt.Errorf("error unmarshaling command config: %w", err)
-	}
-
-	cmdLogger.Debug("Command config loaded successfully")
-	return &config, nil
-}
-
-func checkCooldown(userID, command, cooldownStr string) bool {
-	if cooldownStr == "" {
-		return true
-	}
-
-	cooldownDuration, err := time.ParseDuration(cooldownStr)
-	if err != nil {
-		cmdLogger.Errorf("Invalid cooldown duration for command %s: %v", command, err)
-		return true
-	}
-
-	cooldownMutex.Lock()
-	defer cooldownMutex.Unlock()
-
-	key := fmt.Sprintf("%s:%s", userID, command)
-	lastUsed, exists := cooldowns[key]
-	if !exists || time.Since(lastUsed) > cooldownDuration {
-		cooldowns[key] = time.Now()
-		return true
-	}
-
-	return false
 }
