@@ -36,6 +36,18 @@ func main() {
 		}
 	}
 
+	if config.Discord.Enabled {
+		err := bot.InitDiscord(config.Discord.Token, logger)
+		if err != nil {
+			logger.Errorf("Error initializing Discord: %v", err)
+			logger.Warn("Continuing without Discord functionality")
+		} else {
+			logger.Info("Discord bot initialized successfully")
+		}
+	} else {
+		logger.Info("Discord bot is disabled in configuration")
+	}
+
 	// Set up HTTP server
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/healthz", handleHealthCheck)
