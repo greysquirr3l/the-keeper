@@ -1,63 +1,74 @@
+// discord.go
 package bot
 
 import (
-	"context"
+	"fmt"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.New()
+var (
+	discordSession *discordgo.Session
+	discordLogger  *logrus.Logger
+)
 
-// StartDiscordBot sets up the Discord message handler and starts the bot session.
-func StartDiscordBot(ctx context.Context, keeperBot *Bot, commandsConfig *CommandConfig) {
-	if keeperBot.Config.Discord.Enabled {
-		// Set up a handler for messages
-		keeperBot.Session.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-			// Ignore bot's own messages
-			if m.Author.ID == s.State.User.ID {
-				return
-			}
-
-			// Log the received message for debugging
-			log.Debugf("Message received from user: %s, content: %s", m.Author.Username, m.Content)
-
-			// Handle the command with cooldowns
-			HandleCommand(s, m, commandsConfig)
-		})
-
-		go func() {
-			if err := keeperBot.Start(ctx); err != nil {
-				log.WithError(err).Error("Failed to start Discord bot")
-			}
-		}()
-
-		log.Info("Discord bot has been successfully initialized and started.")
-	} else {
-		log.Warn("Discord is disabled in the configuration.")
+func InitDiscord(token string, logger *logrus.Logger) error {
+	discordLogger = logger
+	var err error
+	discordSession, err = discordgo.New("Bot " + token)
+	if err != nil {
+		return fmt.Errorf("error creating Discord session: %w", err)
 	}
+
+	// Set the intents
+	discordSession.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
+
+	discordSession.AddHandler(messageCreate)
+
+	err = discordSession.Open()
+	if err != nil {
+		return fmt.Errorf("error opening connection: %w", err)
+	}
+
+	discordLogger.Info("Discord bot is now running")
+	return nil
 }
 
-// InitDiscordSession initializes a new Discord session with the required intents and logging.
-func InitDiscordSession(token string) (*discordgo.Session, error) {
-	session, err := discordgo.New("Bot " + token)
-	if err != nil {
-		log.WithError(err).Error("Failed to create Discord session")
-		return nil, err
+func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Author.ID == s.State.User.ID {
+		return
 	}
 
-	// Set the necessary intents for the bot
-	session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
+	config := GetConfig()
+	commandConfig, err := LoadCommandConfig(config.Paths.CommandsConfig)
+	if err != nil {
+		discordLogger.Errorf("Failed to load command config: %v", err)
+		return
+	}
 
-	// Enable logging for certain events
-	session.AddHandler(func(s *discordgo.Session, event *discordgo.Ready) {
-		log.Info("Bot is ready and connected to Discord.")
-	})
+	HandleCommand(s, m, commandConfig)
+}
 
-	session.AddHandler(func(s *discordgo.Session, event *discordgo.Disconnect) {
-		log.Warn("Bot disconnected from Discord.")
-	})
+func IsAdmin(s *discordgo.Session, guildID, userID string) bool {
+	member, err := s.GuildMember(guildID, userID)
+	if err != nil {
+		discordLogger.Errorf("Error fetching guild member: %v", err)
+		return false
+	}
 
-	log.Info("Discord session initialized successfully")
-	return session, nil
+	for _, roleID := range member.Roles {
+		if roleID == GetConfig().Discord.RoleID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func CloseDiscord() error {
+	if discordSession != nil {
+		return discordSession.Close()
+	}
+	return nil
 }
