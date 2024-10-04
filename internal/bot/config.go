@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/bwmarrin/discordgo"
@@ -14,19 +13,20 @@ type Bot struct {
 	shutdownChan chan struct{}
 }
 
-// Config structure to load YAML config
 type Config struct {
-	Port    string
 	Discord struct {
 		Token         string `yaml:"token"`
-		Enabled       bool   `yaml:"enabled"`
-		CommandPrefix string `yaml:"command_prefix"`
+		ClientID      string `yaml:"client_id"`
+		ClientSecret  string `yaml:"client_secret"`
+		RedirectURL   string `yaml:"redirect_url"`
+		Enabled       bool   `yaml:"enabled"`        // Add Enabled to config parsing
+		CommandPrefix string `yaml:"command_prefix"` // Add Command Prefix for bot commands
 	} `yaml:"discord"`
 	Server struct {
 		Port string `yaml:"port"`
 	} `yaml:"server"`
 	Logging struct {
-		LogLevel string `yaml:"log_level"`
+		LogLevel string `yaml:"log_level"` // Add LogLevel for setting log level
 	} `yaml:"logging"`
 }
 
@@ -51,18 +51,18 @@ type CommandConfig struct {
 }
 
 // LoadConfig loads the configuration from a YAML file
-func LoadConfig(filename string) (*Config, error) {
-	config := &Config{}
-	file, err := os.Open(filename)
+func LoadConfig(path string) (*Config, error) {
+	configFile, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open config file: %w", err)
+		return nil, err
 	}
-	defer file.Close()
+	defer configFile.Close()
 
-	decoder := yaml.NewDecoder(file)
-	err = decoder.Decode(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode YAML: %w", err)
+	var cfg Config
+	decoder := yaml.NewDecoder(configFile)
+	if err := decoder.Decode(&cfg); err != nil {
+		return nil, err
 	}
-	return config, nil
+
+	return &cfg, nil
 }

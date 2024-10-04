@@ -11,15 +11,11 @@ import (
 	"time"
 
 	"the-keeper/internal/bot"
-
-	"github.com/sirupsen/logrus"
 )
-
-var log = logrus.New()
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("Application error: %v", err)
+		bot.Log.Fatalf("Application error: %v", err)
 	}
 }
 
@@ -34,6 +30,9 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
+
+	// Initialize the logger using the configuration
+	bot.InitializeLogger(config)
 
 	// Create a new bot instance (delegating to bot package)
 	keeperBot, err := bot.NewBot(config)
@@ -51,7 +50,7 @@ func run() error {
 	if config.Discord.Enabled {
 		go func() {
 			if err := keeperBot.Start(ctx); err != nil {
-				log.WithError(err).Error("Failed to start bot")
+				bot.Log.WithError(err).Error("Failed to start Discord bot")
 			}
 		}()
 	}
@@ -77,9 +76,9 @@ func startHTTPServer(ctx context.Context, port string, keeperBot *bot.Bot) *http
 	}
 
 	go func() {
-		log.WithField("port", port).Info("Starting HTTP server")
+		bot.Log.WithField("port", port).Info("Starting HTTP server")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.WithError(err).Error("HTTP server error")
+			bot.Log.WithError(err).Error("HTTP server error")
 		}
 	}()
 
@@ -91,19 +90,19 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 func shutdown(ctx context.Context, server *http.Server, keeperBot *bot.Bot) error {
-	log.Info("Shutting down server...")
+	bot.Log.Info("Shutting down server...")
 
 	shutdownCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.WithError(err).Error("Server forced to shutdown")
+		bot.Log.WithError(err).Error("Server forced to shutdown")
 	}
 
 	if err := keeperBot.Shutdown(); err != nil {
-		log.WithError(err).Error("Error shutting down bot")
+		bot.Log.WithError(err).Error("Error shutting down bot")
 	}
 
-	log.Info("Server exited successfully")
+	bot.Log.Info("Server exited successfully")
 	return nil
 }
