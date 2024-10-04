@@ -36,19 +36,24 @@ type Config struct {
 
 var config *Config
 
-func GetConfig() *Config {
-	return config
-}
-
-func LoadConfig(path string) (*Config, error) {
-	viper.SetConfigFile(path)
+func LoadConfig() (*Config, error) {
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("./configs")
+	viper.AddConfigPath("$HOME/.the-keeper")
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			fmt.Println("No config file found. Using default values and environment variables.")
+		} else {
+			return nil, fmt.Errorf("failed to read config file: %w", err)
+		}
 	}
 
-	if err := viper.Unmarshal(&config); err != nil {
+	config = &Config{}
+	if err := viper.Unmarshal(config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
@@ -62,18 +67,40 @@ func LoadConfig(path string) (*Config, error) {
 	if discordClientSecret := os.Getenv("DISCORD_CLIENT_SECRET"); discordClientSecret != "" {
 		config.Discord.ClientSecret = discordClientSecret
 	}
-	if discordRedirectURL := os.Getenv("RAILWAY_PUBLIC_DOMAIN"); discordRedirectURL != "" {
-		config.Discord.RedirectURL = discordRedirectURL + "/oauth2/callback"
+	if discordRoleID := os.Getenv("DISCORD_ROLE_ID"); discordRoleID != "" {
+		config.Discord.RoleID = discordRoleID
+	}
+	if redirectURL := os.Getenv("RAILWAY_PUBLIC_DOMAIN"); redirectURL != "" {
+		config.Discord.RedirectURL = redirectURL + "/oauth2/callback"
 	}
 
-	// Set the database path
-	volumeMountPath := os.Getenv("RAILWAY_VOLUME_MOUNT_PATH")
-	if volumeMountPath == "" {
-		volumeMountPath = "." // Use current directory if not set
+	// Set database path
+	if dbPath := os.Getenv("RAILWAY_VOLUME_MOUNT_PATH"); dbPath != "" {
+		config.Database.Path = filepath.Join(dbPath, "the_keeper.db")
+	} else {
+		config.Database.Path = "the_keeper.db"
 	}
-	config.Database.Path = filepath.Join(volumeMountPath, "the_keeper.db")
+
+	// Set default values if not provided
+	if config.Server.Port == "" {
+		config.Server.Port = "8080"
+	}
+	if config.Logging.LogLevel == "" {
+		config.Logging.LogLevel = "info"
+	}
+	if config.Discord.CommandPrefix == "" {
+		config.Discord.CommandPrefix = "!"
+	}
+	if config.Paths.CommandsConfig == "" {
+		config.Paths.CommandsConfig = "configs/commands.yaml"
+	}
 
 	return config, nil
+}
+
+// GetConfig returns the current configuration
+func GetConfig() *Config {
+	return config
 }
 
 func InitializeLogger(config *Config) *logrus.Logger {

@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	config, err := bot.LoadConfig("config.yaml")
+	config, err := bot.LoadConfig()
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
 	}
