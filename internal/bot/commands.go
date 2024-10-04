@@ -26,26 +26,27 @@ var cooldowns = struct {
 type Subcommand struct {
 	Description string `yaml:"description"`
 	Usage       string `yaml:"usage"`
-	Cooldown    int    `yaml:"cooldown"` // Cooldown in seconds
-	Hidden      bool   `yaml:"hidden"`   // Whether the subcommand is hidden
+	Cooldown    string `yaml:"cooldown"` // Cooldown as a string (like "5s")
+	Hidden      bool   `yaml:"hidden"`
 }
 
 type Command struct {
 	Description string                `yaml:"description"`
 	Usage       string                `yaml:"usage"`
-	Cooldown    int                   `yaml:"cooldown"`    // Cooldown in seconds
-	Hidden      bool                  `yaml:"hidden"`      // Whether the command is hidden
-	Subcommands map[string]Subcommand `yaml:"subcommands"` // Subcommands under the main command
+	Cooldown    string                `yaml:"cooldown"` // Cooldown as a string
+	Hidden      bool                  `yaml:"hidden"`
+	Subcommands map[string]Subcommand `yaml:"subcommands"`
 }
 
 type CommandConfig struct {
-	Commands map[string]Command `yaml:"commands"` // Map of commands
+	Commands map[string]Command `yaml:"commands"`
 }
 
 // LoadCommandsConfig loads the command configuration from a YAML file
 func LoadCommandsConfig(filename string) (*CommandConfig, error) {
 	file, err := os.Open(filename)
 	if err != nil {
+		log.WithError(err).Errorf("Failed to open commands config file: %s", filename)
 		return nil, fmt.Errorf("failed to open commands config file: %w", err)
 	}
 	defer file.Close()
@@ -53,6 +54,7 @@ func LoadCommandsConfig(filename string) (*CommandConfig, error) {
 	var config CommandConfig
 	decoder := yaml.NewDecoder(file)
 	if err := decoder.Decode(&config); err != nil {
+		log.WithError(err).Error("Failed to decode commands YAML")
 		return nil, fmt.Errorf("failed to decode commands YAML: %w", err)
 	}
 
@@ -108,7 +110,9 @@ func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, commandConf
 		return
 	}
 
-	// Handle subcommands if present
+	var cooldown time.Duration
+	var err error
+
 	if subCmdName != "" {
 		subCmd, subExists := cmd.Subcommands[subCmdName]
 		if !subExists {
@@ -117,29 +121,35 @@ func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, commandConf
 			return
 		}
 
-		// Check cooldown for the subcommand
-		if !CheckCooldown(m.Author.ID, cmdName+"_"+subCmdName, subCmd.Cooldown) {
+		// Parse cooldown for subcommand
+		cooldown, err = time.ParseDuration(subCmd.Cooldown)
+		if err != nil {
+			log.Errorf("Invalid cooldown format for subcommand '%s': %v", subCmdName, err)
+			return
+		}
+
+		// Handle subcommand execution and cooldown
+		if !CheckCooldown(m.Author.ID, cmdName+"_"+subCmdName, int(cooldown.Seconds())) {
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You must wait before using the '%s' subcommand again.", subCmdName))
 			return
 		}
-
-		// Execute subcommand
 		executeSubCommand(s, m, subCmd)
-
-		// Set cooldown for the subcommand
 		SetCooldown(m.Author.ID, cmdName+"_"+subCmdName)
 		log.Infof("Subcommand '%s' executed by user %s", subCmdName, m.Author.Username)
 	} else {
-		// Check cooldown for the main command
-		if !CheckCooldown(m.Author.ID, cmdName, cmd.Cooldown) {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You must wait before using the '%s' command again.", cmdName))
+		// Parse cooldown for the main command
+		cooldown, err = time.ParseDuration(cmd.Cooldown)
+		if err != nil {
+			log.Errorf("Invalid cooldown format for command '%s': %v", cmdName, err)
 			return
 		}
 
-		// Execute the main command
+		// Handle command execution and cooldown
+		if !CheckCooldown(m.Author.ID, cmdName, int(cooldown.Seconds())) {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You must wait before using the '%s' command again.", cmdName))
+			return
+		}
 		executeCommand(s, m, cmd)
-
-		// Set cooldown for the main command
 		SetCooldown(m.Author.ID, cmdName)
 		log.Infof("Command '%s' executed by user %s", cmdName, m.Author.Username)
 	}

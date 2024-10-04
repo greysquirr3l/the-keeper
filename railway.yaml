@@ -1,0 +1,13 @@
+# railway.yaml
+services:
+  - name: keeper-bot
+    # Railway service environment - it will use the main service port.
+    startCommand: go run cmd/bot/main.go
+    # Optional: If you want to use a specific Go version during build
+    buildCommand: go mod tidy && go build cmd/bot/main.go
+
+    envVars:
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      PORT: ${PORT}  # Railway automatically assigns this port, so use it from environment.
