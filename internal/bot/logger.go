@@ -6,20 +6,33 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Initialize the global logger
-var log = logrus.New()
+// Declare the global logger
+var Log = logrus.New()
 
-// InitializeLogger sets up logrus formatting and output settings
-func InitializeLogger() {
+// InitializeLogger sets up logrus formatting and log level based on the configuration
+func InitializeLogger(config *Config) {
 	// Set the output to stdout
-	log.SetOutput(os.Stdout)
+	Log.SetOutput(os.Stdout)
 
-	// Set the log level (can adjust to Debug, Warn, Error, etc.)
-	log.SetLevel(logrus.InfoLevel)
+	// Set the log level based on the configuration
+	switch config.Logging.LogLevel {
+	case "debug":
+		Log.SetLevel(logrus.DebugLevel)
+	case "info":
+		Log.SetLevel(logrus.InfoLevel)
+	case "warn":
+		Log.SetLevel(logrus.WarnLevel)
+	case "error":
+		Log.SetLevel(logrus.ErrorLevel)
+	default:
+		Log.SetLevel(logrus.InfoLevel) // Default to Info level if no valid log level is provided
+	}
 
-	// Set the format to JSON (optional: change to TextFormatter if preferred)
-	log.SetFormatter(&logrus.TextFormatter{
+	// Set the log format (TextFormatter or JSONFormatter)
+	Log.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp:   true,
 		TimestampFormat: "2006-01-02 15:04:05",
 	})
+
+	Log.Infof("Logger initialized with level: %s", config.Logging.LogLevel)
 }

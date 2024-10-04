@@ -72,7 +72,7 @@ func startHTTPServer(ctx context.Context, port string, keeperBot *bot.Bot) *http
 	mux.HandleFunc("/oauth2/callback", keeperBot.HandleOAuth2Callback)
 
 	server := &http.Server{
-		Addr:    ":" + port,
+		Addr:    "0.0.0.0:" + port, // Explicitly listening on 0.0.0.0
 		Handler: mux,
 	}
 

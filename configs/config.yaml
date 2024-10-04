@@ -4,7 +4,10 @@ discord:
   client_secret: ${DISCORD_CLIENT_SECRET}
   redirect_url: http://yourserver.com/oauth2/callback
   command_prefix: "!"
+
 server:
+  host: ${RAILWAY_PUBLIC_DOMAIN}
   port: "8080"
+
 logging:
   log_level: "debug"

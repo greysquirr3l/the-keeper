@@ -6,11 +6,7 @@ import (
 	"net/http"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
 )
-
-// Global logger
-var Log = logrus.New()
 
 // NewBot creates a new bot instance
 func NewBot(config *Config) (*Bot, error) {
