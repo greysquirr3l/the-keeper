@@ -1,3 +1,4 @@
+// cmd/bot/main.go
 package main
 
 import (
@@ -26,7 +27,7 @@ func run() error {
 	flag.Parse()
 
 	// Load configuration (YAML)
-	config, err := bot.LoadConfig("configs/config.yaml")
+	config, err := bot.LoadConfig("configs/config.template.yaml") // Change to template if needed
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
@@ -53,6 +54,8 @@ func run() error {
 				bot.Log.WithError(err).Error("Failed to start Discord bot")
 			}
 		}()
+	} else {
+		bot.Log.Warn("Discord is disabled in the configuration.")
 	}
 
 	// Listen for system signals (e.g., SIGINT, SIGTERM)

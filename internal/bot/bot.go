@@ -1,3 +1,4 @@
+// internal/bot/bot.go
 package bot
 
 import (
@@ -7,6 +8,13 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 )
+
+// Bot structure
+type Bot struct {
+	Config       *Config
+	Session      *discordgo.Session
+	shutdownChan chan struct{}
+}
 
 // NewBot creates a new bot instance
 func NewBot(config *Config) (*Bot, error) {

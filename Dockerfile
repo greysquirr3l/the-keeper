@@ -26,8 +26,8 @@ RUN go build -o the-keeper ./cmd/bot/main.go
 # Stage 2: Run the Go app in a lightweight container
 FROM alpine:3.18
 
-# Install CA certificates for SSL, SQLite, and other necessary runtime dependencies
-RUN apk --no-cache add ca-certificates tzdata sqlite-libs
+# Install CA certificates for SSL, SQLite, gettext for envsubst
+RUN apk --no-cache add ca-certificates tzdata sqlite-libs gettext
 
 # Set working directory in the second stage
 WORKDIR /app
@@ -41,12 +41,15 @@ ENV RAILWAY_VOLUME_MOUNT_PATH="/app/data2"
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/the-keeper .
 
-# Copy configuration files
-COPY configs/commands.yaml ./configs/commands.yaml
-COPY configs/config.yaml ./configs/config.yaml
+# Copy configuration template
+COPY configs/config.yaml ./configs/config.template.yaml
+
+# Replace environment variables in config.template.yaml at runtime
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose the port the app will run on
 EXPOSE 8080
 
 # Define the entry point for the container to run the bot
-ENTRYPOINT ["./the-keeper"]
+ENTRYPOINT ["/entrypoint.sh"]
