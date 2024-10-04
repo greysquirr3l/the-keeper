@@ -42,7 +42,7 @@ ENV RAILWAY_VOLUME_MOUNT_PATH="/app/data2"
 COPY --from=builder /app/the-keeper .
 
 # Copy configuration files
-# COPY configs/production/commands.yaml ./configs/production/commands.yaml
+COPY configs/commands.yaml ./configs/commands.yaml
 COPY configs/config.yaml ./configs/config.yaml
 
 # Expose the port the app will run on
