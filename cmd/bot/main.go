@@ -11,6 +11,7 @@ import (
 
 	"the-keeper/internal/bot"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,18 +30,16 @@ func run() error {
 		port = "8080" // Fallback to default port if not set
 	}
 
-	// Check for Railway `RAILWAY_PUBLIC_DOMAIN` environment variable
-	publicDomain := os.Getenv("RAILWAY_PUBLIC_DOMAIN")
-	if publicDomain == "" {
-		publicDomain = "http://localhost:" + port // Fallback to local address if not set
-	}
-
-	log.Infof("Bot is running at: %s", publicDomain)
-
-	// Load configuration (YAML)
+	// Load the bot configuration (YAML)
 	config, err := bot.LoadConfig("configs/config.yaml")
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		return fmt.Errorf("failed to load bot configuration: %w", err)
+	}
+
+	// Load the commands configuration (YAML)
+	commandsConfig, err := bot.LoadCommandsConfig("configs/commands.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to load commands configuration: %w", err)
 	}
 
 	// Create a new bot instance (delegating to bot package)
@@ -49,14 +48,23 @@ func run() error {
 		return fmt.Errorf("failed to create bot: %w", err)
 	}
 
-	// Start the HTTP server in a goroutine
+	// Initialize context for the bot and HTTP server
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	server := startHTTPServer(ctx, port, keeperBot)
-
-	// Optionally start the bot in a separate goroutine if Discord is enabled
+	// Start the bot session and register the commands
 	if config.Discord.Enabled {
+		// Set up a handler for messages
+		keeperBot.Session.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+			// Ignore bot's own messages
+			if m.Author.ID == s.State.User.ID {
+				return
+			}
+
+			// Handle the command with cooldowns
+			bot.HandleCommand(s, m, commandsConfig)
+		})
+
 		go func() {
 			if err := keeperBot.Start(ctx); err != nil {
 				log.WithError(err).Error("Failed to start bot")
@@ -64,12 +72,12 @@ func run() error {
 		}()
 	}
 
-	// Listen for system signals (e.g., SIGINT, SIGTERM)
+	// Start HTTP server and listen for shutdown signal
+	server := startHTTPServer(ctx, port, keeperBot)
 	shutdownSignal := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownSignal
 
-	// Graceful shutdown
 	return shutdown(ctx, server, keeperBot)
 }
 
@@ -80,7 +88,7 @@ func startHTTPServer(ctx context.Context, port string, keeperBot *bot.Bot) *http
 	mux.HandleFunc("/oauth2/callback", keeperBot.HandleOAuth2Callback)
 
 	server := &http.Server{
-		Addr:    ":" + port,
+		Addr:    "0.0.0.0:" + port,
 		Handler: mux,
 	}
 

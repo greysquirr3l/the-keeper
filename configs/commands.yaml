@@ -1,0 +1,90 @@
+commands:
+  id:
+    description: "Manage player IDs"
+    usage: "!id <add|edit|remove|list> [arguments]"
+    cooldown: 5
+    subcommands:
+      add:
+        description: "Add a new player ID"
+        usage: "!id add <playerID>"
+        cooldown: 0
+        hidden: false
+      edit:
+        description: "Edit an existing player ID"
+        usage: "!id edit <newPlayerID>"
+        cooldown: 0
+        hidden: false
+      remove:
+        description: "Remove a player ID"
+        usage: "!id remove <playerID>"
+        cooldown: 0
+        hidden: false
+      list:
+        description: "List player IDs"
+        usage: "!id list"
+        cooldown: 0
+        hidden: false
+
+  term:
+    description: "Manage terms"
+    usage: "!term <add|edit|remove|list> [arguments]"
+    cooldown: "5s"
+    subcommands:
+      add:
+        description: "Add a new term"
+        usage: "!term add <title> <description>"
+        cooldown: 0
+        hidden: false
+      edit:
+        description: "Edit an existing term"
+        usage: "!term edit <title> <new description>"
+        cooldown: 0
+        hidden: false
+      remove:
+        description: "Remove a term"
+        usage: "!term remove <title>"
+        cooldown: 0
+        hidden: false
+      list:
+        description: "List all terms"
+        usage: "!term list"
+        cooldown: 0
+        hidden: false
+
+  giftcode:
+    description: "Manage gift codes"
+    usage: "!giftcode <redeem|deploy|validate|list> <GiftCode>"
+    cooldown: 10
+    subcommands:
+      redeem:
+        description: "Redeem a gift code"
+        usage: "!giftcode redeem <GiftCode>"
+        cooldown: 0
+        hidden: false
+      deploy:
+        description: "Deploy a gift code to all users (admin only)"
+        usage: "!giftcode deploy <GiftCode>"
+        cooldown: 0
+        hidden: false
+      validate:
+        description: "Validate a gift code"
+        usage: "!giftcode validate <GiftCode>"
+        cooldown: 0
+        hidden: false
+      list:
+        description: "List redeemed gift codes"
+        usage: "!giftcode list"
+        cooldown: 0
+        hidden: false
+
+  scrape:
+    description: "Manually trigger gift code scraping"
+    usage: "!scrape"
+    cooldown: 60
+    hidden: true
+
+  help:
+    description: "Show help information"
+    usage: "!help [command]"
+    cooldown: 10
+    hidden: false
