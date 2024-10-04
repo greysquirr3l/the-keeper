@@ -2,11 +2,11 @@ package bot
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
 	"time"
-
-	"io/ioutil"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
@@ -77,7 +77,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, config *Com
 	}
 
 	if !checkCooldown(m.Author.ID, cmdName, cmd.Cooldown) {
-		sendMessage(s, m.ChannelID, "This command is on cooldown. Please wait before using it again.")
+		SendMessage(s, m.ChannelID, "This command is on cooldown. Please wait before using it again.")
 		return
 	}
 
@@ -95,25 +95,25 @@ func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, config *Com
 
 func handleGenericCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
 	if len(args) == 0 {
-		sendMessage(s, m.ChannelID, fmt.Sprintf("Usage: %s", cmd.Usage))
+		SendMessage(s, m.ChannelID, fmt.Sprintf("Usage: %s", cmd.Usage))
 		return
 	}
 
 	subCmdName := args[0]
 	subCmd, exists := cmd.Subcommands[subCmdName]
 	if !exists {
-		sendMessage(s, m.ChannelID, fmt.Sprintf("Unknown subcommand: %s. Use !help %s for more information.", subCmdName, cmd.Usage))
+		SendMessage(s, m.ChannelID, fmt.Sprintf("Unknown subcommand: %s. Use !help %s for more information.", subCmdName, cmd.Usage))
 		return
 	}
 
 	if !checkCooldown(m.Author.ID, fmt.Sprintf("%s:%s", cmd.Usage, subCmdName), subCmd.Cooldown) {
-		sendMessage(s, m.ChannelID, "This subcommand is on cooldown. Please wait before using it again.")
+		SendMessage(s, m.ChannelID, "This subcommand is on cooldown. Please wait before using it again.")
 		return
 	}
 
 	// Here you would implement the logic for each subcommand
 	// For now, we'll just send a message with the subcommand description
-	sendMessage(s, m.ChannelID, fmt.Sprintf("Executing subcommand: %s\nDescription: %s", subCmdName, subCmd.Description))
+	SendMessage(s, m.ChannelID, fmt.Sprintf("Executing subcommand: %s\nDescription: %s", subCmdName, subCmd.Description))
 }
 
 func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
@@ -121,7 +121,7 @@ func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []
 	commandConfig, err := LoadCommandConfig(config.Paths.CommandsConfig)
 	if err != nil {
 		cmdLogger.Errorf("Failed to load command config: %v", err)
-		sendMessage(s, m.ChannelID, "Error loading command configuration.")
+		SendMessage(s, m.ChannelID, "Error loading command configuration.")
 		return
 	}
 
@@ -134,13 +134,13 @@ func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []
 			}
 		}
 		helpMsg += fmt.Sprintf("\nUse `%shelp <command>` for more information on a specific command.", config.Discord.CommandPrefix)
-		sendMessage(s, m.ChannelID, helpMsg)
+		SendMessage(s, m.ChannelID, helpMsg)
 	} else {
 		// Help for specific command
 		cmdName := strings.ToLower(args[0])
 		cmd, exists := commandConfig.Commands[cmdName]
 		if !exists || cmd.Hidden {
-			sendMessage(s, m.ChannelID, fmt.Sprintf("No help available for command: %s", cmdName))
+			SendMessage(s, m.ChannelID, fmt.Sprintf("No help available for command: %s", cmdName))
 			return
 		}
 		helpMsg := fmt.Sprintf("**%s%s**: %s\n", config.Discord.CommandPrefix, cmdName, cmd.Description)
@@ -160,7 +160,7 @@ func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []
 				}
 			}
 		}
-		sendMessage(s, m.ChannelID, helpMsg)
+		SendMessage(s, m.ChannelID, helpMsg)
 	}
 }
 
@@ -169,17 +169,28 @@ func SetCommandLogger(logger *logrus.Logger) {
 }
 
 func LoadCommandConfig(filename string) (*CommandConfig, error) {
+	cmdLogger.Debugf("Attempting to load command config from: %s", filename)
+
+	// Check if the file exists
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		cmdLogger.Errorf("Command config file does not exist: %s", filename)
+		return nil, fmt.Errorf("command config file does not exist: %s", filename)
+	}
+
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
+		cmdLogger.Errorf("Error reading command config file: %v", err)
 		return nil, fmt.Errorf("error reading command config file: %w", err)
 	}
 
 	var config CommandConfig
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
+		cmdLogger.Errorf("Error unmarshaling command config: %v", err)
 		return nil, fmt.Errorf("error unmarshaling command config: %w", err)
 	}
 
+	cmdLogger.Debug("Command config loaded successfully")
 	return &config, nil
 }
 
@@ -205,11 +216,4 @@ func checkCooldown(userID, command, cooldownStr string) bool {
 	}
 
 	return false
-}
-
-func sendMessage(s *discordgo.Session, channelID, content string) {
-	_, err := s.ChannelMessageSend(channelID, content)
-	if err != nil {
-		cmdLogger.Errorf("Failed to send message: %v", err)
-	}
 }

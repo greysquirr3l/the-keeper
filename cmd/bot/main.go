@@ -1,4 +1,3 @@
-// main.go
 package main
 
 import (
@@ -7,7 +6,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
+
 	"the-keeper/internal/bot" // Replace with your actual import path
 
 	"github.com/sirupsen/logrus"
@@ -21,12 +22,16 @@ func main() {
 
 	logger := bot.InitializeLogger(config)
 
-	// Add this line to verify logger initialization
 	logger.Debug("Logger initialized with level:", logger.GetLevel())
 
-	// Set loggers for different packages
 	bot.SetCommandLogger(logger)
 	bot.SetUtilLogger(logger)
+
+	// Check if commands.yaml exists
+	commandsYamlPath := filepath.Join("configs", "commands.yaml")
+	if _, err := os.Stat(commandsYamlPath); os.IsNotExist(err) {
+		logger.Fatalf("commands.yaml not found at %s", commandsYamlPath)
+	}
 
 	if err := bot.InitDB(config, logger); err != nil {
 		logger.Fatalf("Error initializing database: %v", err)
@@ -35,7 +40,6 @@ func main() {
 	bot.RegisterCommands()
 
 	if config.Discord.Enabled {
-		// Add this line to verify Discord initialization is being called
 		logger.Debug("Attempting to initialize Discord bot...")
 
 		err := bot.InitDiscord(config.Discord.Token, logger)
