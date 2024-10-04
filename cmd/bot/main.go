@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
 	"the-keeper/internal/bot" // Replace with your actual import path
 
 	"github.com/sirupsen/logrus"
@@ -22,6 +21,9 @@ func main() {
 
 	logger := bot.InitializeLogger(config)
 
+	// Add this line to verify logger initialization
+	logger.Debug("Logger initialized with level:", logger.GetLevel())
+
 	// Set loggers for different packages
 	bot.SetCommandLogger(logger)
 	bot.SetUtilLogger(logger)
@@ -33,6 +35,9 @@ func main() {
 	bot.RegisterCommands()
 
 	if config.Discord.Enabled {
+		// Add this line to verify Discord initialization is being called
+		logger.Debug("Attempting to initialize Discord bot...")
+
 		err := bot.InitDiscord(config.Discord.Token, logger)
 		if err != nil {
 			logger.Errorf("Error initializing Discord: %v", err)
@@ -50,12 +55,13 @@ func main() {
 	http.HandleFunc("/oauth2/callback", handleOAuth2Callback(logger))
 
 	go func() {
+		logger.Infof("Starting HTTP server on port %s", config.Server.Port)
 		if err := http.ListenAndServe(":"+config.Server.Port, nil); err != nil {
 			logger.Fatalf("Failed to start server: %v", err)
 		}
 	}()
 
-	logger.Infof("Server is running on port %s", config.Server.Port)
+	logger.Info("Server is now running. Press CTRL+C to exit.")
 
 	// Wait for interrupt signal to gracefully shut down the server
 	quit := make(chan os.Signal, 1)
@@ -67,6 +73,8 @@ func main() {
 	if config.Discord.Enabled {
 		if err := bot.CloseDiscord(); err != nil {
 			logger.Errorf("Error closing Discord connection: %v", err)
+		} else {
+			logger.Info("Discord connection closed successfully")
 		}
 	}
 
@@ -84,6 +92,8 @@ func handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 
 func handleOAuth2Callback(logger *logrus.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Info("Received OAuth2 callback request")
+
 		// Log the entire request for debugging purposes
 		logRequest(r, logger)
 
@@ -99,13 +109,14 @@ func handleOAuth2Callback(logger *logrus.Logger) http.HandlerFunc {
 		logger.WithFields(logrus.Fields{
 			"code":  r.Form.Get("code"),
 			"state": r.Form.Get("state"),
-		}).Info("Received OAuth2 callback")
+		}).Info("OAuth2 callback parameters")
 
 		// You can add more processing here if needed
 
 		// Respond to the client
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OAuth2 callback received"))
+		logger.Info("OAuth2 callback processed successfully")
 	}
 }
 
@@ -123,6 +134,6 @@ func logRequest(r *http.Request, logger *logrus.Logger) {
 	if err != nil {
 		logger.Errorf("Error marshaling request details: %v", err)
 	} else {
-		logger.Infof("Received request: %s", string(jsonDetails))
+		logger.Infof("Received request details: %s", string(jsonDetails))
 	}
 }
