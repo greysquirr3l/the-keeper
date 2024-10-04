@@ -1,3 +1,4 @@
+prefix: "!"
 commands:
   id:
     description: "Manage player IDs"

@@ -10,4 +10,4 @@ services:
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
-      PORT: ${PORT}  # Railway automatically assigns this port, so use it from environment.
+      PORT: ${PORT}  # Railway automatically assigns this port

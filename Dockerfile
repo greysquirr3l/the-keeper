@@ -41,8 +41,8 @@ ENV RAILWAY_VOLUME_MOUNT_PATH="/app/data2"
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/the-keeper .
 
-# Copy configuration template
-COPY configs/config.yaml ./configs/config.template.yaml
+# Copy the entire configs directory
+COPY configs ./configs
 
 # Replace environment variables in config.template.yaml at runtime
 COPY entrypoint.sh /entrypoint.sh

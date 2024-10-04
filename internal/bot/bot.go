@@ -1,26 +1,25 @@
-// internal/bot/bot.go
+// bot.go
 package bot
 
 import (
-	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sirupsen/logrus"
 )
 
-// Bot structure
 type Bot struct {
 	Config       *Config
 	Session      *discordgo.Session
 	shutdownChan chan struct{}
+	logger       *logrus.Logger
 }
 
-// NewBot creates a new bot instance
-func NewBot(config *Config) (*Bot, error) {
+func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
 	bot := &Bot{
 		Config:       config,
 		shutdownChan: make(chan struct{}),
+		logger:       logger,
 	}
 
 	if config.Discord.Enabled {
@@ -34,11 +33,10 @@ func NewBot(config *Config) (*Bot, error) {
 	return bot, nil
 }
 
-// Start launches the Discord bot (if enabled)
-func (b *Bot) Start(ctx context.Context) error {
+func (b *Bot) Start() error {
 	if b.Config.Discord.Enabled {
-		Log.Info("Starting Discord bot")
-		err := b.initDiscord(ctx)
+		b.logger.Info("Starting Discord bot")
+		err := b.initDiscord()
 		if err != nil {
 			return fmt.Errorf("failed to initialize Discord: %w", err)
 		}
@@ -46,44 +44,56 @@ func (b *Bot) Start(ctx context.Context) error {
 	return nil
 }
 
-// Shutdown gracefully shuts down the bot
 func (b *Bot) Shutdown() error {
 	if b.Config.Discord.Enabled {
 		if err := b.Session.Close(); err != nil {
-			Log.WithError(err).Error("Error closing Discord session")
+			b.logger.WithError(err).Error("Error closing Discord session")
 		}
 	}
-	Log.Info("Bot has been shut down")
+	b.logger.Info("Bot has been shut down")
 	return nil
 }
 
-// HealthCheckHandler handles /healthz endpoint
-func (b *Bot) HealthCheckHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "OK")
-	}
-}
+func (b *Bot) initDiscord() error {
+	b.Session.AddHandler(b.messageCreate)
 
-// HandleOAuth2Callback handles the OAuth2 callback for Discord authorization
-func (b *Bot) HandleOAuth2Callback(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "OAuth2 callback received!")
-}
+	b.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 
-// initDiscord sets up the Discord session handlers
-func (b *Bot) initDiscord(ctx context.Context) error {
-	b.Session.AddHandler(b.onReady)
-
-	// Open the session
 	err := b.Session.Open()
 	if err != nil {
 		return fmt.Errorf("error opening Discord session: %w", err)
 	}
 
-	Log.Info("Discord bot is running")
+	b.logger.Info("Discord bot is now running")
 	return nil
 }
 
-// onReady handler for when the bot is ready
-func (b *Bot) onReady(s *discordgo.Session, event *discordgo.Ready) {
-	Log.Info("Bot is now connected to Discord")
+func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
+
+	commandConfig, err := LoadCommandConfig("commands.yaml")
+	if err != nil {
+		b.logger.Errorf("Failed to load command config: %v", err)
+		return
+	}
+
+	HandleCommand(s, m, commandConfig)
+}
+
+func (b *Bot) IsAdmin(s *discordgo.Session, guildID, userID string) bool {
+	member, err := s.GuildMember(guildID, userID)
+	if err != nil {
+		b.logger.Errorf("Error fetching guild member: %v", err)
+		return false
+	}
+
+	for _, roleID := range member.Roles {
+		if roleID == b.Config.Discord.RoleID {
+			return true
+		}
+	}
+
+	return false
 }

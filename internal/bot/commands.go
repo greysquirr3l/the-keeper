@@ -2,131 +2,205 @@ package bot
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
-// parseCommand extracts the main command and subcommand from the message content.
-func parseCommand(content string) (string, string) {
-	// Split the message content by spaces to extract the command and subcommand
-	parts := strings.Fields(content)
+var (
+	commandHandlers = make(map[string]CommandHandler)
+	cmdLogger       *logrus.Logger
+	cooldowns       = make(map[string]time.Time)
+	cooldownMutex   sync.Mutex
+)
 
-	// The first part is the command name (e.g., "id")
-	if len(parts) > 0 {
-		cmdName := parts[0]
+type CommandHandler func(*discordgo.Session, *discordgo.MessageCreate, []string, *Command)
 
-		// If there's a subcommand, it would be the second part (e.g., "add" in "!id add 1234")
-		if len(parts) > 1 {
-			subCmdName := parts[1]
-			return cmdName, subCmdName
-		}
-
-		// If there's no subcommand, just return the command name
-		return cmdName, ""
-	}
-
-	// If no command was found, return empty strings
-	return "", ""
+type CommandConfig struct {
+	Prefix   string             `yaml:"prefix"`
+	Commands map[string]Command `yaml:"commands"`
 }
 
-// HandleCommand processes incoming commands
-func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, commandConfig *CommandConfig) {
-	// Extract the command prefix from the configuration
-	prefix := commandConfig.Prefix
-	if !strings.HasPrefix(m.Content, prefix) {
+type Command struct {
+	Description string                `yaml:"description"`
+	Usage       string                `yaml:"usage"`
+	Cooldown    string                `yaml:"cooldown"`
+	Subcommands map[string]Subcommand `yaml:"subcommands"`
+	Hidden      bool                  `yaml:"hidden"`
+}
+
+type Subcommand struct {
+	Description string `yaml:"description"`
+	Usage       string `yaml:"usage"`
+	Cooldown    string `yaml:"cooldown"`
+	Hidden      bool   `yaml:"hidden"`
+}
+
+func RegisterCommands() {
+	RegisterCommand("help", handleHelpCommand)
+	RegisterCommand("id", handleGenericCommand)
+	RegisterCommand("term", handleGenericCommand)
+	RegisterCommand("giftcode", handleGenericCommand)
+	RegisterCommand("scrape", handleGenericCommand)
+}
+
+func RegisterCommand(name string, handler CommandHandler) {
+	commandHandlers[name] = handler
+}
+
+func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, config *CommandConfig) {
+	if m.Author.Bot {
 		return
 	}
 
-	// Parse the command and subcommand from the message
-	cmdName, subCmdName := parseCommand(m.Content[len(prefix):])
+	content := m.Content
+	if !strings.HasPrefix(content, config.Prefix) {
+		return
+	}
 
-	// Find the command in the configuration
-	cmd, exists := commandConfig.Commands[cmdName]
+	args := strings.Fields(content[len(config.Prefix):])
+	if len(args) == 0 {
+		return
+	}
+
+	cmdName := args[0]
+	cmd, exists := config.Commands[cmdName]
 	if !exists {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command '%s' not found.", cmdName))
-		Log.Warnf("Command '%s' not found", cmdName)
+		cmdLogger.Infof("Unknown command: %s", cmdName)
 		return
 	}
 
-	var cooldown time.Duration
-	var err error
+	if !CheckCooldown(m.Author.ID, cmdName, cmd.Cooldown) {
+		SendMessage(s, m.ChannelID, "This command is on cooldown. Please wait before using it again.")
+		return
+	}
 
-	// Check if a subcommand is provided
-	if subCmdName != "" {
-		subCmd, subExists := cmd.Subcommands[subCmdName]
-		if !subExists {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Subcommand '%s' not found under command '%s'.", subCmdName, cmdName))
-			Log.Warnf("Subcommand '%s' not found under command '%s'", subCmdName, cmdName)
-			return
-		}
-
-		// Parse cooldown for the subcommand
-		cooldown, err = time.ParseDuration(subCmd.Cooldown)
-		if err != nil {
-			Log.Errorf("Invalid cooldown format for subcommand '%s': %v", subCmdName, err)
-			return
-		}
-
-		// Handle subcommand execution and cooldown
-		if !CheckCooldown(m.Author.ID, cmdName+"_"+subCmdName, int(cooldown.Seconds())) {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You must wait before using the '%s' subcommand again.", subCmdName))
-			return
-		}
-
-		executeSubCommand(s, m, subCmd)
-		SetCooldown(m.Author.ID, cmdName+"_"+subCmdName)
-		Log.Infof("Subcommand '%s' executed by user %s", subCmdName, m.Author.Username)
+	if handler, ok := commandHandlers[cmdName]; ok {
+		cmdLogger.WithFields(logrus.Fields{
+			"user":    m.Author.Username,
+			"command": cmdName,
+			"args":    args[1:],
+		}).Debug("Executing command")
+		handler(s, m, args[1:], &cmd)
 	} else {
-		// Parse cooldown for the main command
-		cooldown, err = time.ParseDuration(cmd.Cooldown)
-		if err != nil {
-			Log.Errorf("Invalid cooldown format for command '%s': %v", cmdName, err)
-			return
-		}
-
-		// Handle main command execution and cooldown
-		if !CheckCooldown(m.Author.ID, cmdName, int(cooldown.Seconds())) {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You must wait before using the '%s' command again.", cmdName))
-			return
-		}
-		executeCommand(s, m, cmd)
-		SetCooldown(m.Author.ID, cmdName)
-		Log.Infof("Command '%s' executed by user %s", cmdName, m.Author.Username)
+		cmdLogger.Warnf("Handler not implemented for command: %s", cmdName)
 	}
 }
 
-// executeCommand processes and executes a main command dynamically from the YAML config.
-func executeCommand(s *discordgo.Session, m *discordgo.MessageCreate, cmd Command) {
-	// Log the command execution
-	Log.Infof("Executing command '%s' by user %s", cmd.Description, m.Author.Username)
-
-	// Check if the command is hidden and skip execution if it is
-	if cmd.Hidden {
-		Log.Infof("Command '%s' is hidden and won't be executed.", cmd.Description)
+func handleGenericCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
+	if len(args) == 0 {
+		SendMessage(s, m.ChannelID, fmt.Sprintf("Usage: %s", cmd.Usage))
 		return
 	}
 
-	// Example logic to show command execution (replace this with your specific logic)
-	message := fmt.Sprintf("Command '%s' executed with usage: %s", cmd.Description, cmd.Usage)
-	s.ChannelMessageSend(m.ChannelID, message)
+	subCmdName := args[0]
+	subCmd, exists := cmd.Subcommands[subCmdName]
+	if !exists {
+		SendMessage(s, m.ChannelID, fmt.Sprintf("Unknown subcommand: %s. Use !help %s for more information.", subCmdName, cmd.Usage))
+		return
+	}
 
-	// You can add additional logic for each command here
+	if !CheckCooldown(m.Author.ID, fmt.Sprintf("%s:%s", cmd.Usage, subCmdName), subCmd.Cooldown) {
+		SendMessage(s, m.ChannelID, "This subcommand is on cooldown. Please wait before using it again.")
+		return
+	}
+
+	// Here you would implement the logic for each subcommand
+	// For now, we'll just send a message with the subcommand description
+	SendMessage(s, m.ChannelID, fmt.Sprintf("Executing subcommand: %s\nDescription: %s", subCmdName, subCmd.Description))
 }
 
-// executeSubCommand dynamically processes and executes a subcommand based on the configuration.
-func executeSubCommand(s *discordgo.Session, m *discordgo.MessageCreate, subCmd Subcommand) {
-	// Log the subcommand execution
-	Log.Infof("Executing subcommand '%s' by user %s", subCmd.Description, m.Author.Username)
+func LoadCommandConfig(filename string) (*CommandConfig, error) {
+	cmdLogger.Debugf("Attempting to load command config from: %s", filename)
 
-	// Check if the subcommand is hidden and skip execution
-	if subCmd.Hidden {
-		Log.Infof("Subcommand '%s' is hidden and won't be executed.", subCmd.Description)
+	// Check if the path exists
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			cmdLogger.Errorf("Command config file does not exist: %s", filename)
+			return nil, fmt.Errorf("command config file does not exist: %s", filename)
+		}
+		cmdLogger.Errorf("Error checking command config file: %v", err)
+		return nil, fmt.Errorf("error checking command config file: %w", err)
+	}
+
+	// Check if it's a directory
+	if fileInfo.IsDir() {
+		cmdLogger.Errorf("Expected a file, but got a directory: %s", filename)
+		return nil, fmt.Errorf("expected a file, but got a directory: %s", filename)
+	}
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		cmdLogger.Errorf("Error reading command config file: %v", err)
+		return nil, fmt.Errorf("error reading command config file: %w", err)
+	}
+
+	var config CommandConfig
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		cmdLogger.Errorf("Error unmarshaling command config: %v", err)
+		return nil, fmt.Errorf("error unmarshaling command config: %w", err)
+	}
+
+	cmdLogger.Debug("Command config loaded successfully")
+	return &config, nil
+}
+
+func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
+	config := GetConfig()
+	commandConfig, err := LoadCommandConfig(config.Paths.CommandsConfig)
+	if err != nil {
+		cmdLogger.Errorf("Failed to load command config: %v", err)
+		SendMessage(s, m.ChannelID, "Error loading command configuration.")
 		return
 	}
 
-	// Example logic to show subcommand execution. You can replace this with specific logic.
-	message := fmt.Sprintf("Subcommand '%s' executed with usage: %s", subCmd.Description, subCmd.Usage)
-	s.ChannelMessageSend(m.ChannelID, message)
+	if len(args) == 0 {
+		// General help message
+		helpMsg := "Available commands:\n"
+		for cmdName, cmd := range commandConfig.Commands {
+			if !cmd.Hidden {
+				helpMsg += fmt.Sprintf("**%s%s**: %s\n", config.Discord.CommandPrefix, cmdName, cmd.Description)
+			}
+		}
+		helpMsg += fmt.Sprintf("\nUse `%shelp <command>` for more information on a specific command.", config.Discord.CommandPrefix)
+		SendMessage(s, m.ChannelID, helpMsg)
+	} else {
+		// Help for specific command
+		cmdName := strings.ToLower(args[0])
+		cmd, exists := commandConfig.Commands[cmdName]
+		if !exists || cmd.Hidden {
+			SendMessage(s, m.ChannelID, fmt.Sprintf("No help available for command: %s", cmdName))
+			return
+		}
+		helpMsg := fmt.Sprintf("**%s%s**: %s\n", config.Discord.CommandPrefix, cmdName, cmd.Description)
+		helpMsg += fmt.Sprintf("Usage: `%s`\n", cmd.Usage)
+		if cmd.Cooldown != "" {
+			helpMsg += fmt.Sprintf("Cooldown: %s\n", cmd.Cooldown)
+		}
+		if len(cmd.Subcommands) > 0 {
+			helpMsg += "\nSubcommands:\n"
+			for subCmdName, subCmd := range cmd.Subcommands {
+				if !subCmd.Hidden {
+					helpMsg += fmt.Sprintf("  **%s**: %s\n", subCmdName, subCmd.Description)
+					helpMsg += fmt.Sprintf("    Usage: `%s`\n", subCmd.Usage)
+					if subCmd.Cooldown != "" {
+						helpMsg += fmt.Sprintf("    Cooldown: %s\n", subCmd.Cooldown)
+					}
+				}
+			}
+		}
+		SendMessage(s, m.ChannelID, helpMsg)
+	}
+}
+
+func SetCommandLogger(logger *logrus.Logger) {
+	cmdLogger = logger
 }

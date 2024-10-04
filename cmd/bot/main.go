@@ -1,111 +1,168 @@
-// cmd/bot/main.go
 package main
 
 import (
-	"context"
-	"flag"
-	"fmt"
+	"encoding/json"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
-	"time"
 
-	"the-keeper/internal/bot"
+	"the-keeper/internal/bot" // Replace with your actual import path
+
+	"github.com/sirupsen/logrus"
 )
 
+func listDirectoryContents(path string, logger *logrus.Logger) {
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		logger.Errorf("Failed to read directory %s: %v", path, err)
+		return
+	}
+
+	logger.Debugf("Contents of %s:", path)
+	for _, file := range files {
+		logger.Debugf("- %s", file.Name())
+	}
+}
+
 func main() {
-	if err := run(); err != nil {
-		bot.Log.Fatalf("Application error: %v", err)
-	}
-}
-
-func run() error {
-	// Define command-line flags
-	var port string
-	flag.StringVar(&port, "port", "8080", "HTTP server port")
-	flag.Parse()
-
-	// Load configuration (YAML)
-	config, err := bot.LoadConfig("configs/config.template.yaml") // Change to template if needed
+	config, err := bot.LoadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		log.Fatalf("Error loading config: %v", err)
 	}
 
-	// Initialize the logger using the configuration
-	bot.InitializeLogger(config)
+	logger := bot.InitializeLogger(config)
 
-	// Create a new bot instance (delegating to bot package)
-	keeperBot, err := bot.NewBot(config)
+	logger.Debug("Logger initialized with level:", logger.GetLevel())
+
+	// Set loggers for different packages
+	bot.SetCommandLogger(logger)
+	bot.SetUtilLogger(logger)
+
+	currentDir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to create bot: %w", err)
-	}
-
-	// Start the HTTP server in a goroutine
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	server := startHTTPServer(ctx, port, keeperBot)
-
-	// Optionally start the bot in a separate goroutine if Discord is enabled
-	if config.Discord.Enabled {
-		go func() {
-			if err := keeperBot.Start(ctx); err != nil {
-				bot.Log.WithError(err).Error("Failed to start Discord bot")
-			}
-		}()
+		logger.Errorf("Failed to get current directory: %v", err)
 	} else {
-		bot.Log.Warn("Discord is disabled in the configuration.")
+		logger.Debugf("Current working directory: %s", currentDir)
 	}
 
-	// Listen for system signals (e.g., SIGINT, SIGTERM)
-	shutdownSignal := make(chan os.Signal, 1)
-	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
-	<-shutdownSignal
+	listDirectoryContents(currentDir, logger)
+	listDirectoryContents(filepath.Join(currentDir, "configs"), logger)
 
-	// Graceful shutdown
-	return shutdown(ctx, server, keeperBot)
-}
-
-func startHTTPServer(ctx context.Context, port string, keeperBot *bot.Bot) *http.Server {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", handleRoot)
-	mux.HandleFunc("/healthz", keeperBot.HealthCheckHandler())
-	mux.HandleFunc("/oauth2/callback", keeperBot.HandleOAuth2Callback)
-
-	server := &http.Server{
-		Addr:    ":" + port,
-		Handler: mux,
+	// Check if commands.yaml exists
+	commandsYamlPath := filepath.Join("configs", "commands.yaml")
+	if _, err := os.Stat(commandsYamlPath); os.IsNotExist(err) {
+		logger.Fatalf("commands.yaml not found at %s", commandsYamlPath)
 	}
+
+	if err := bot.InitDB(config, logger); err != nil {
+		logger.Fatalf("Error initializing database: %v", err)
+	}
+
+	bot.RegisterCommands()
+
+	if config.Discord.Enabled {
+		logger.Debug("Attempting to initialize Discord bot...")
+
+		err := bot.InitDiscord(config.Discord.Token, logger)
+		if err != nil {
+			logger.Errorf("Error initializing Discord: %v", err)
+			logger.Warn("Continuing without Discord functionality")
+		} else {
+			logger.Info("Discord bot initialized successfully")
+		}
+	} else {
+		logger.Info("Discord bot is disabled in configuration")
+	}
+
+	// Set up HTTP server
+	http.HandleFunc("/", handleRoot)
+	http.HandleFunc("/healthz", handleHealthCheck)
+	http.HandleFunc("/oauth2/callback", handleOAuth2Callback(logger))
 
 	go func() {
-		bot.Log.WithField("port", port).Info("Starting HTTP server")
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			bot.Log.WithError(err).Error("HTTP server error")
+		logger.Infof("Starting HTTP server on port %s", config.Server.Port)
+		if err := http.ListenAndServe(":"+config.Server.Port, nil); err != nil {
+			logger.Fatalf("Failed to start server: %v", err)
 		}
 	}()
 
-	return server
+	logger.Info("Server is now running. Press CTRL+C to exit.")
+
+	// Wait for interrupt signal to gracefully shut down the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("Shutting down server...")
+
+	if config.Discord.Enabled {
+		if err := bot.CloseDiscord(); err != nil {
+			logger.Errorf("Error closing Discord connection: %v", err)
+		} else {
+			logger.Info("Discord connection closed successfully")
+		}
+	}
+
+	logger.Info("Server stopped")
 }
 
 func handleRoot(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Welcome to the Keeper Bot!")
+	w.Write([]byte("Welcome to the bot server!"))
 }
 
-func shutdown(ctx context.Context, server *http.Server, keeperBot *bot.Bot) error {
-	bot.Log.Info("Shutting down server...")
+func handleHealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
 
-	shutdownCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
+func handleOAuth2Callback(logger *logrus.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Info("Received OAuth2 callback request")
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		bot.Log.WithError(err).Error("Server forced to shutdown")
+		// Log the entire request for debugging purposes
+		logRequest(r, logger)
+
+		// Parse the query parameters
+		err := r.ParseForm()
+		if err != nil {
+			logger.Errorf("Error parsing form: %v", err)
+			http.Error(w, "Error processing request", http.StatusBadRequest)
+			return
+		}
+
+		// Log the query parameters
+		logger.WithFields(logrus.Fields{
+			"code":  r.Form.Get("code"),
+			"state": r.Form.Get("state"),
+		}).Info("OAuth2 callback parameters")
+
+		// You can add more processing here if needed
+
+		// Respond to the client
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OAuth2 callback received"))
+		logger.Info("OAuth2 callback processed successfully")
+	}
+}
+
+func logRequest(r *http.Request, logger *logrus.Logger) {
+	// Create a map to store request details
+	requestDetails := map[string]interface{}{
+		"Method":     r.Method,
+		"RequestURI": r.RequestURI,
+		"RemoteAddr": r.RemoteAddr,
+		"Header":     r.Header,
 	}
 
-	if err := keeperBot.Shutdown(); err != nil {
-		bot.Log.WithError(err).Error("Error shutting down bot")
+	// Log the request details as JSON
+	jsonDetails, err := json.MarshalIndent(requestDetails, "", "  ")
+	if err != nil {
+		logger.Errorf("Error marshaling request details: %v", err)
+	} else {
+		logger.Infof("Received request details: %s", string(jsonDetails))
 	}
-
-	bot.Log.Info("Server exited successfully")
-	return nil
 }
