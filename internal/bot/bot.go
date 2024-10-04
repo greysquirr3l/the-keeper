@@ -9,21 +9,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Bot structure
-type Bot struct {
-	Config       *Config
-	Session      *discordgo.Session
-	Logger       *logrus.Logger
-	shutdownChan chan struct{}
-}
+// Global logger
+var Log = logrus.New()
 
 // NewBot creates a new bot instance
 func NewBot(config *Config) (*Bot, error) {
-	logger := logrus.New()
-
 	bot := &Bot{
 		Config:       config,
-		Logger:       logger,
 		shutdownChan: make(chan struct{}),
 	}
 
@@ -41,7 +33,7 @@ func NewBot(config *Config) (*Bot, error) {
 // Start launches the Discord bot (if enabled)
 func (b *Bot) Start(ctx context.Context) error {
 	if b.Config.Discord.Enabled {
-		b.Logger.Info("Starting Discord bot")
+		Log.Info("Starting Discord bot")
 		err := b.initDiscord(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to initialize Discord: %w", err)
@@ -54,10 +46,10 @@ func (b *Bot) Start(ctx context.Context) error {
 func (b *Bot) Shutdown() error {
 	if b.Config.Discord.Enabled {
 		if err := b.Session.Close(); err != nil {
-			b.Logger.WithError(err).Error("Error closing Discord session")
+			Log.WithError(err).Error("Error closing Discord session")
 		}
 	}
-	b.Logger.Info("Bot has been shut down")
+	Log.Info("Bot has been shut down")
 	return nil
 }
 
@@ -83,11 +75,11 @@ func (b *Bot) initDiscord(ctx context.Context) error {
 		return fmt.Errorf("error opening Discord session: %w", err)
 	}
 
-	b.Logger.Info("Discord bot is running")
+	Log.Info("Discord bot is running")
 	return nil
 }
 
 // onReady handler for when the bot is ready
 func (b *Bot) onReady(s *discordgo.Session, event *discordgo.Ready) {
-	b.Logger.Info("Bot is now connected to Discord")
+	Log.Info("Bot is now connected to Discord")
 }

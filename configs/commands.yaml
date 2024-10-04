@@ -2,89 +2,89 @@ commands:
   id:
     description: "Manage player IDs"
     usage: "!id <add|edit|remove|list> [arguments]"
-    cooldown: 5
+    cooldown: "3s"
     subcommands:
       add:
         description: "Add a new player ID"
         usage: "!id add <playerID>"
-        cooldown: 0
+        cooldown: "2s"
         hidden: false
       edit:
         description: "Edit an existing player ID"
         usage: "!id edit <newPlayerID>"
-        cooldown: 0
+        cooldown: "3s"
         hidden: false
       remove:
         description: "Remove a player ID"
         usage: "!id remove <playerID>"
-        cooldown: 0
+        cooldown: "5s"
         hidden: false
       list:
         description: "List player IDs"
         usage: "!id list"
-        cooldown: 0
+        cooldown: "10s"
         hidden: false
 
   term:
     description: "Manage terms"
     usage: "!term <add|edit|remove|list> [arguments]"
-    cooldown: "5s"
+    cooldown: "3s"
     subcommands:
       add:
         description: "Add a new term"
         usage: "!term add <title> <description>"
-        cooldown: 0
+        cooldown: "2s"
         hidden: false
       edit:
         description: "Edit an existing term"
         usage: "!term edit <title> <new description>"
-        cooldown: 0
+        cooldown: "3s"
         hidden: false
       remove:
         description: "Remove a term"
         usage: "!term remove <title>"
-        cooldown: 0
+        cooldown: "5s"
         hidden: false
       list:
         description: "List all terms"
         usage: "!term list"
-        cooldown: 0
+        cooldown: "10s"
         hidden: false
 
   giftcode:
     description: "Manage gift codes"
     usage: "!giftcode <redeem|deploy|validate|list> <GiftCode>"
-    cooldown: 10
+    cooldown: "3s"
     subcommands:
       redeem:
         description: "Redeem a gift code"
         usage: "!giftcode redeem <GiftCode>"
-        cooldown: 0
-        hidden: false
+        cooldown: "3s"
+        hidden: true
       deploy:
         description: "Deploy a gift code to all users (admin only)"
         usage: "!giftcode deploy <GiftCode>"
-        cooldown: 0
-        hidden: false
+        cooldown: "30s"
+        hidden: true
       validate:
         description: "Validate a gift code"
         usage: "!giftcode validate <GiftCode>"
-        cooldown: 0
-        hidden: false
+        cooldown: "2s"
+        hidden: true
       list:
         description: "List redeemed gift codes"
         usage: "!giftcode list"
-        cooldown: 0
-        hidden: false
+        cooldown: "10s"
+        hidden: true
 
   scrape:
     description: "Manually trigger gift code scraping"
     usage: "!scrape"
-    cooldown: 60
+    cooldown: "60s"
     hidden: true
 
   help:
     description: "Show help information"
     usage: "!help [command]"
-    cooldown: 10
+    cooldown: "3s"
     hidden: false

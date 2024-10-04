@@ -2,7 +2,9 @@ discord:
   token: ${DISCORD_BOT_TOKEN}
   client_id: ${DISCORD_CLIENT_ID}
   client_secret: ${DISCORD_CLIENT_SECRET}
-  redirect_url: ${RAILWAY_PUBLIC_DOMAIN}/oauth2/callback
+  redirect_url: http://yourserver.com/oauth2/callback
+  command_prefix: "!"
 server:
-  hostname: ${RAILWAY_PUBLIC_DOMAIN}
-  port: ${PORT}
+  port: "8080"
+logging:
+  log_level: "debug"
