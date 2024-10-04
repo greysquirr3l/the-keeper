@@ -30,6 +30,8 @@ func main() {
 		logger.Fatalf("Error initializing database: %v", err)
 	}
 
+	bot.RegisterCommands()
+
 	if config.Discord.Enabled {
 		err := bot.InitDiscord(config.Discord.Token, logger)
 		if err != nil {

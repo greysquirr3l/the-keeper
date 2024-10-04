@@ -1,8 +1,11 @@
-// commands.go
 package bot
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"io/ioutil"
 
 	"github.com/bwmarrin/discordgo"
@@ -11,12 +14,13 @@ import (
 )
 
 var (
-	commandHandlers    = make(map[string]CommandHandler)
-	subcommandHandlers = make(map[string]map[string]CommandHandler)
-	cmdLogger          *logrus.Logger
+	commandHandlers = make(map[string]CommandHandler)
+	cmdLogger       *logrus.Logger
+	cooldowns       = make(map[string]time.Time)
+	cooldownMutex   sync.Mutex
 )
 
-type CommandHandler func(*discordgo.Session, *discordgo.MessageCreate, []string)
+type CommandHandler func(*discordgo.Session, *discordgo.MessageCreate, []string, *Command)
 
 type CommandConfig struct {
 	Prefix   string             `yaml:"prefix"`
@@ -38,6 +42,132 @@ type Subcommand struct {
 	Hidden      bool   `yaml:"hidden"`
 }
 
+func RegisterCommands() {
+	RegisterCommand("help", handleHelpCommand)
+	RegisterCommand("id", handleGenericCommand)
+	RegisterCommand("term", handleGenericCommand)
+	RegisterCommand("giftcode", handleGenericCommand)
+	RegisterCommand("scrape", handleGenericCommand)
+}
+
+func RegisterCommand(name string, handler CommandHandler) {
+	commandHandlers[name] = handler
+}
+
+func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, config *CommandConfig) {
+	if m.Author.Bot {
+		return
+	}
+
+	content := m.Content
+	if !strings.HasPrefix(content, config.Prefix) {
+		return
+	}
+
+	args := strings.Fields(content[len(config.Prefix):])
+	if len(args) == 0 {
+		return
+	}
+
+	cmdName := args[0]
+	cmd, exists := config.Commands[cmdName]
+	if !exists {
+		cmdLogger.Infof("Unknown command: %s", cmdName)
+		return
+	}
+
+	if !checkCooldown(m.Author.ID, cmdName, cmd.Cooldown) {
+		sendMessage(s, m.ChannelID, "This command is on cooldown. Please wait before using it again.")
+		return
+	}
+
+	if handler, ok := commandHandlers[cmdName]; ok {
+		cmdLogger.WithFields(logrus.Fields{
+			"user":    m.Author.Username,
+			"command": cmdName,
+			"args":    args[1:],
+		}).Debug("Executing command")
+		handler(s, m, args[1:], &cmd)
+	} else {
+		cmdLogger.Warnf("Handler not implemented for command: %s", cmdName)
+	}
+}
+
+func handleGenericCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
+	if len(args) == 0 {
+		sendMessage(s, m.ChannelID, fmt.Sprintf("Usage: %s", cmd.Usage))
+		return
+	}
+
+	subCmdName := args[0]
+	subCmd, exists := cmd.Subcommands[subCmdName]
+	if !exists {
+		sendMessage(s, m.ChannelID, fmt.Sprintf("Unknown subcommand: %s. Use !help %s for more information.", subCmdName, cmd.Usage))
+		return
+	}
+
+	if !checkCooldown(m.Author.ID, fmt.Sprintf("%s:%s", cmd.Usage, subCmdName), subCmd.Cooldown) {
+		sendMessage(s, m.ChannelID, "This subcommand is on cooldown. Please wait before using it again.")
+		return
+	}
+
+	// Here you would implement the logic for each subcommand
+	// For now, we'll just send a message with the subcommand description
+	sendMessage(s, m.ChannelID, fmt.Sprintf("Executing subcommand: %s\nDescription: %s", subCmdName, subCmd.Description))
+}
+
+func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
+	config := GetConfig()
+	commandConfig, err := LoadCommandConfig(config.Paths.CommandsConfig)
+	if err != nil {
+		cmdLogger.Errorf("Failed to load command config: %v", err)
+		sendMessage(s, m.ChannelID, "Error loading command configuration.")
+		return
+	}
+
+	if len(args) == 0 {
+		// General help message
+		helpMsg := "Available commands:\n"
+		for cmdName, cmd := range commandConfig.Commands {
+			if !cmd.Hidden {
+				helpMsg += fmt.Sprintf("**%s%s**: %s\n", config.Discord.CommandPrefix, cmdName, cmd.Description)
+			}
+		}
+		helpMsg += fmt.Sprintf("\nUse `%shelp <command>` for more information on a specific command.", config.Discord.CommandPrefix)
+		sendMessage(s, m.ChannelID, helpMsg)
+	} else {
+		// Help for specific command
+		cmdName := strings.ToLower(args[0])
+		cmd, exists := commandConfig.Commands[cmdName]
+		if !exists || cmd.Hidden {
+			sendMessage(s, m.ChannelID, fmt.Sprintf("No help available for command: %s", cmdName))
+			return
+		}
+		helpMsg := fmt.Sprintf("**%s%s**: %s\n", config.Discord.CommandPrefix, cmdName, cmd.Description)
+		helpMsg += fmt.Sprintf("Usage: `%s`\n", cmd.Usage)
+		if cmd.Cooldown != "" {
+			helpMsg += fmt.Sprintf("Cooldown: %s\n", cmd.Cooldown)
+		}
+		if len(cmd.Subcommands) > 0 {
+			helpMsg += "\nSubcommands:\n"
+			for subCmdName, subCmd := range cmd.Subcommands {
+				if !subCmd.Hidden {
+					helpMsg += fmt.Sprintf("  **%s**: %s\n", subCmdName, subCmd.Description)
+					helpMsg += fmt.Sprintf("    Usage: `%s`\n", subCmd.Usage)
+					if subCmd.Cooldown != "" {
+						helpMsg += fmt.Sprintf("    Cooldown: %s\n", subCmd.Cooldown)
+					}
+				}
+			}
+		}
+		sendMessage(s, m.ChannelID, helpMsg)
+	}
+}
+
+func SetCommandLogger(logger *logrus.Logger) {
+	cmdLogger = logger
+}
+
 func LoadCommandConfig(filename string) (*CommandConfig, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -53,21 +183,33 @@ func LoadCommandConfig(filename string) (*CommandConfig, error) {
 	return &config, nil
 }
 
-func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, config *CommandConfig) {
-	// ... (existing HandleCommand function remains the same)
-}
-
-func RegisterCommand(name string, handler CommandHandler) {
-	commandHandlers[name] = handler
-}
-
-func RegisterSubcommand(cmdName, subCmdName string, handler CommandHandler) {
-	if _, ok := subcommandHandlers[cmdName]; !ok {
-		subcommandHandlers[cmdName] = make(map[string]CommandHandler)
+func checkCooldown(userID, command, cooldownStr string) bool {
+	if cooldownStr == "" {
+		return true
 	}
-	subcommandHandlers[cmdName][subCmdName] = handler
+
+	cooldownDuration, err := time.ParseDuration(cooldownStr)
+	if err != nil {
+		cmdLogger.Errorf("Invalid cooldown duration for command %s: %v", command, err)
+		return true
+	}
+
+	cooldownMutex.Lock()
+	defer cooldownMutex.Unlock()
+
+	key := fmt.Sprintf("%s:%s", userID, command)
+	lastUsed, exists := cooldowns[key]
+	if !exists || time.Since(lastUsed) > cooldownDuration {
+		cooldowns[key] = time.Now()
+		return true
+	}
+
+	return false
 }
 
-func SetCommandLogger(logger *logrus.Logger) {
-	cmdLogger = logger
+func sendMessage(s *discordgo.Session, channelID, content string) {
+	_, err := s.ChannelMessageSend(channelID, content)
+	if err != nil {
+		cmdLogger.Errorf("Failed to send message: %v", err)
+	}
 }

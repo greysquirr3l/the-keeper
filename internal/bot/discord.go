@@ -17,7 +17,6 @@ func InitDiscord(token string, logger *logrus.Logger) error {
 	discordLogger = logger
 	discordLogger.Info("Initializing Discord bot...")
 
-	// Enable discordgo debug logging
 	discordgo.Logger = func(msgL, caller int, format string, a ...interface{}) {
 		discordLogger.Debugf(format, a...)
 	}
@@ -43,7 +42,7 @@ func InitDiscord(token string, logger *logrus.Logger) error {
 		return fmt.Errorf("error opening connection: %w", err)
 	}
 
-	discordLogger.Info("Discord bot is now running")
+	discordLogger.Info("Discord bot is now running with username: %s", discordSession.State.User.Username)
 	return nil
 }
 
@@ -52,14 +51,14 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	discordLogger.Debugf("Received message: %s", m.Content)
+
 	config := GetConfig()
 	commandConfig, err := LoadCommandConfig(config.Paths.CommandsConfig)
 	if err != nil {
 		discordLogger.Errorf("Failed to load command config: %v", err)
 		return
 	}
-
-	discordLogger.Debugf("Received message: %s", m.Content)
 
 	HandleCommand(s, m, commandConfig)
 }
