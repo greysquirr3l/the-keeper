@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func listDirectoryContents(path string, logger *logrus.Logger) {
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		logger.Errorf("Failed to read directory %s: %v", path, err)
+		return
+	}
+
+	logger.Debugf("Contents of %s:", path)
+	for _, file := range files {
+		logger.Debugf("- %s", file.Name())
+	}
+}
+
 func main() {
 	config, err := bot.LoadConfig()
 	if err != nil {
@@ -24,8 +38,19 @@ func main() {
 
 	logger.Debug("Logger initialized with level:", logger.GetLevel())
 
+	// Set loggers for different packages
 	bot.SetCommandLogger(logger)
 	bot.SetUtilLogger(logger)
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		logger.Errorf("Failed to get current directory: %v", err)
+	} else {
+		logger.Debugf("Current working directory: %s", currentDir)
+	}
+
+	listDirectoryContents(currentDir, logger)
+	listDirectoryContents(filepath.Join(currentDir, "configs"), logger)
 
 	// Check if commands.yaml exists
 	commandsYamlPath := filepath.Join("configs", "commands.yaml")
