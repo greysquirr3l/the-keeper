@@ -44,6 +44,9 @@ COPY --from=builder /app/the-keeper .
 # Copy configuration template
 COPY configs/config.yaml ./configs/config.template.yaml
 
+# Copy commands.yaml
+COPY configs ./configs/commands.yaml
+
 # Replace environment variables in config.template.yaml at runtime
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
