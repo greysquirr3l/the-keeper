@@ -6,18 +6,26 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type Bot struct {
 	Config       *Config
 	Session      *discordgo.Session
+	DB           *gorm.DB
 	shutdownChan chan struct{}
 	logger       *logrus.Logger
 }
 
 func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
+	db, err := InitDB(config, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+
 	bot := &Bot{
 		Config:       config,
+		DB:           db,
 		shutdownChan: make(chan struct{}),
 		logger:       logger,
 	}

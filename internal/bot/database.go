@@ -61,21 +61,21 @@ func (l CustomGormLogger) Trace(ctx context.Context, begin time.Time, fc func() 
 	}
 }
 
-func InitDB(config *Config, logger *logrus.Logger) error {
+func InitDB(config *Config, logger *logrus.Logger) (*gorm.DB, error) {
 	dbLogger = logger
 	var err error
 	db, err = gorm.Open(sqlite.Open(config.Database.Path), &gorm.Config{
 		Logger: CustomGormLogger{Logger: logger},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to connect database: %w", err)
+		return nil, fmt.Errorf("failed to connect database: %w", err)
 	}
 
 	if err := RunMigrations(db); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	return nil
+	return db, nil
 }
 
 func AddTerm(term, description string) error {

@@ -41,7 +41,11 @@ func checkConfiguration(config *bot.Config) error {
 
 func performStartupChecks(b *bot.Bot) error {
 	// Check database connection
-	if err := b.DB.Ping(); err != nil {
+	sqlDB, err := b.DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get database instance: %w", err)
+	}
+	if err := sqlDB.Ping(); err != nil {
 		return fmt.Errorf("database connection failed: %w", err)
 	}
 
@@ -92,10 +96,6 @@ func main() {
 	err = bot.LoadCommands(commandsYamlPath)
 	if err != nil {
 		logger.Fatalf("Error loading commands: %v", err)
-	}
-
-	if err := bot.InitDB(config, logger); err != nil {
-		logger.Fatalf("Error initializing database: %v", err)
 	}
 
 	var discordBot *bot.Bot
