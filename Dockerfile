@@ -52,4 +52,4 @@ RUN chmod +x /app/entrypoint.sh
 EXPOSE 8080
 
 # Define the entry point for the container to run the bot
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.sh"]
