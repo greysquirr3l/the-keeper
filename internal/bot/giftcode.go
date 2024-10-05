@@ -1,4 +1,4 @@
-// File: ./internal/bot/giftcode.go
+// File: internal/bot/giftcode.go
 
 package bot
 
@@ -16,13 +16,11 @@ import (
 
 var baseURL string
 
-func init() {
-	config := GetConfig()
+func SetGiftCodeBaseURL(config *Config) {
 	baseURL = config.GiftCode.APIEndpoint
 }
 
 func (b *Bot) appendSign(data map[string]string) map[string]string {
-
 	var keys []string
 	for k := range data {
 		keys = append(keys, k)

@@ -35,6 +35,9 @@ func checkConfiguration(config *bot.Config) error {
 	if config.Discord.Token == "" {
 		return fmt.Errorf("Discord token is not set")
 	}
+	if config.GiftCode.APIEndpoint == "" {
+		return fmt.Errorf("Gift code API endpoint is not set")
+	}
 	// Add more checks as needed
 	return nil
 }
@@ -71,6 +74,9 @@ func main() {
 	if err := checkConfiguration(config); err != nil {
 		log.Fatalf("Configuration error: %v", err)
 	}
+
+	// Set the gift code base URL after loading the config
+	bot.SetGiftCodeBaseURL(config)
 
 	logger := bot.InitializeLogger(config)
 
