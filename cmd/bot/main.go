@@ -1,7 +1,10 @@
+// File: cmd/bot/main.go
+
 package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -28,10 +31,41 @@ func listDirectoryContents(path string, logger *logrus.Logger) {
 	}
 }
 
+func checkConfiguration(config *bot.Config) error {
+	if config.Discord.Token == "" {
+		return fmt.Errorf("Discord token is not set")
+	}
+	// Add more checks as needed
+	return nil
+}
+
+func performStartupChecks(b *bot.Bot) error {
+	// Check database connection
+	if err := b.DB.Ping(); err != nil {
+		return fmt.Errorf("database connection failed: %w", err)
+	}
+
+	// Check Discord connection
+	if _, err := b.Session.User("@me"); err != nil {
+		return fmt.Errorf("Discord connection failed: %w", err)
+	}
+
+	// Load commands
+	if err := bot.LoadCommands(b.Config.Paths.CommandsConfig); err != nil {
+		return fmt.Errorf("failed to load commands: %w", err)
+	}
+
+	return nil
+}
+
 func main() {
 	config, err := bot.LoadConfig()
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
+	}
+
+	if err := checkConfiguration(config); err != nil {
+		log.Fatalf("Configuration error: %v", err)
 	}
 
 	logger := bot.InitializeLogger(config)
@@ -71,6 +105,10 @@ func main() {
 		discordBot, err = bot.NewBot(config, logger)
 		if err != nil {
 			logger.Fatalf("Error creating bot: %v", err)
+		}
+
+		if err := performStartupChecks(discordBot); err != nil {
+			logger.Fatalf("Startup checks failed: %v", err)
 		}
 
 		err = discordBot.Start()

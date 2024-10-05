@@ -66,7 +66,6 @@ func InitDiscord(token string, logger *logrus.Logger) error {
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Ignore messages from the bot itself
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
@@ -75,7 +74,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	config := GetConfig()
 	err := LoadCommands(config.Paths.CommandsConfig)
-	// TODO: err := LoadCommands(config.Paths.CommandsConfig)
 	if err != nil {
 		discordLogger.Errorf("Failed to load command config: %v", err)
 		return
@@ -88,7 +86,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 func SendMessage(s *discordgo.Session, channelID string, message string) {
 	_, err := s.ChannelMessageSend(channelID, message)
 	if err != nil {
-		logrus.Errorf("Error sending message: %v", err)
+		discordLogger.Errorf("Error sending message: %v", err)
 	}
 }
 

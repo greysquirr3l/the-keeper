@@ -14,10 +14,10 @@ import (
 	"time"
 )
 
-// Update the baseURL to use the config
 var baseURL string
 
 func init() {
+	config := GetConfig()
 	baseURL = config.GiftCode.APIEndpoint
 }
 

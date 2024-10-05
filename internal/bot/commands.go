@@ -7,11 +7,12 @@ import (
 	"io/ioutil"
 
 	// "os"
-	"path/filepath"
+
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
+
 	// "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
@@ -60,41 +61,27 @@ func LoadCommands(configPath string) error {
 		return fmt.Errorf("error unmarshaling command config: %w", err)
 	}
 
-	handlersDir := "./bot/handlers" // Set the correct handlers directory path
+	// handlersDir := "./bot/handlers" // Set the correct handlers directory path
 
 	for name, cmd := range config.Commands {
 		CommandRegistry[name] = cmd
 
-		handlerFileName := fmt.Sprintf("%s_handlers.go", name)
-		handlerFilePath := filepath.Join(handlersDir, handlerFileName)
-
-		if fileExists(handlerFilePath) {
-			globalLogger.Infof("Loaded handlers for command: %s", name)
-
-			// Check for main command handler
-			mainHandlerName := fmt.Sprintf("handle%sCommand", strings.Title(name))
-			if handler, exists := HandlerRegistry[mainHandlerName]; exists {
-				globalLogger.Infof("  - Registered handler: %s", mainHandlerName)
-				cmd.HandlerFunc = handler
-			} else {
-				globalLogger.Warnf("  - Main handler not found: %s", mainHandlerName)
-			}
-
-			// Check for subcommand handlers
-			for subCmdName, subCmd := range cmd.Subcommands {
-				subHandlerName := fmt.Sprintf("handle%s%sCommand", strings.Title(name), strings.Title(subCmdName))
-				if handler, exists := HandlerRegistry[subHandlerName]; exists {
-					globalLogger.Infof("  - Registered handler: %s", subHandlerName)
-					subCmd.HandlerFunc = handler
-				} else {
-					globalLogger.Warnf("  - Subcommand handler not found: %s", subHandlerName)
-				}
-			}
+		if handler, exists := HandlerRegistry[cmd.Handler]; exists {
+			cmd.HandlerFunc = handler
 		} else {
-			globalLogger.Warnf("Handler file not found for command: %s", name)
+			globalLogger.Warnf("Handler not found for command: %s", name)
+		}
+
+		for subName, subCmd := range cmd.Subcommands {
+			if handler, exists := HandlerRegistry[subCmd.Handler]; exists {
+				subCmd.HandlerFunc = handler
+			} else {
+				globalLogger.Warnf("Handler not found for subcommand: %s %s", name, subName)
+			}
 		}
 	}
 
+	globalLogger.Info("Commands loaded successfully")
 	return nil
 }
 
