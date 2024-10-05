@@ -15,3 +15,7 @@ logging:
 
 paths:
   commands_config: "configs/commands.yaml"
+
+database:
+  volumeMountPath: "/app/data2"
+  name: "keeper.db"

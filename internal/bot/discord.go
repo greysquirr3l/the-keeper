@@ -74,20 +74,20 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	discordLogger.Debugf("Received message: %s from user: %s", m.Content, m.Author.Username)
 
 	config := GetConfig()
-	commandConfig, err := LoadCommandConfig(config.Paths.CommandsConfig)
+	err := LoadCommands(config.Paths.CommandsConfig)
 	if err != nil {
 		discordLogger.Errorf("Failed to load command config: %v", err)
 		return
 	}
 
-	HandleCommand(s, m, commandConfig)
+	HandleCommand(s, m, config)
 }
 
-// Helper function to send a message with error logging
+// SendMessage is a helper function to send a message to a channel
 func SendMessage(s *discordgo.Session, channelID string, message string) {
 	_, err := s.ChannelMessageSend(channelID, message)
 	if err != nil {
-		discordLogger.Errorf("Error sending message: %v", err)
+		logrus.Errorf("Error sending message: %v", err)
 	}
 }
 

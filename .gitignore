@@ -29,3 +29,6 @@ players.yml
 
 allcode.txt
 copy_code.sh
+
+.DS_Store
+tree.txt

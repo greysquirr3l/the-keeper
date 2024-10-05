@@ -12,26 +12,28 @@ import (
 
 type Config struct {
 	Discord struct {
-		Token         string `mapstructure:"token"`
-		ClientID      string `mapstructure:"client_id"`
-		ClientSecret  string `mapstructure:"client_secret"`
-		RoleID        string `mapstructure:"role_id"`
-		RedirectURL   string `mapstructure:"redirect_url"`
-		Enabled       bool   `mapstructure:"enabled"`
-		CommandPrefix string `mapstructure:"command_prefix"`
-	} `mapstructure:"discord"`
+		Token         string `yaml:"token"`
+		ClientID      string `yaml:"client_id"`
+		ClientSecret  string `yaml:"client_secret"`
+		RoleID        string `yaml:"RoleID"`
+		RedirectURL   string `yaml:"redirect_url"`
+		Enabled       bool   `yaml:"enabled"`
+		CommandPrefix string `yaml:"command_prefix"`
+	} `yaml:"discord"`
 	Server struct {
-		Port string `mapstructure:"port"`
-	} `mapstructure:"server"`
+		Port string `yaml:"port"`
+	} `yaml:"server"`
 	Logging struct {
-		LogLevel string `mapstructure:"log_level"`
-	} `mapstructure:"logging"`
-	Database struct {
-		Path string
-	}
+		LogLevel string `yaml:"log_level"`
+	} `yaml:"logging"`
 	Paths struct {
-		CommandsConfig string `mapstructure:"commands_config"`
-	} `mapstructure:"paths"`
+		CommandsConfig string `yaml:"commands_config"`
+	} `yaml:"paths"`
+	Database struct {
+		VolumeMountPath string `yaml:"volumeMountPath"`
+		Name            string `yaml:"name"`
+		Path            string `yaml:"path"`
+	} `yaml:"database"`
 }
 
 var config *Config
@@ -76,9 +78,9 @@ func LoadConfig() (*Config, error) {
 
 	// Set database path
 	if dbPath := os.Getenv("RAILWAY_VOLUME_MOUNT_PATH"); dbPath != "" {
-		config.Database.Path = filepath.Join(dbPath, "the_keeper.db")
+		config.Database.Path = filepath.Join(dbPath, config.Database.Name)
 	} else {
-		config.Database.Path = "the_keeper.db"
+		config.Database.Path = config.Database.Name
 	}
 
 	// Set default values if not provided

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"the-keeper/internal/bot" // Replace with your actual import path
+	"the-keeper/internal/bot"
 
 	"github.com/sirupsen/logrus"
 )
@@ -38,10 +38,6 @@ func main() {
 
 	logger.Debug("Logger initialized with level:", logger.GetLevel())
 
-	// Set loggers for different packages
-	bot.SetCommandLogger(logger)
-	bot.SetUtilLogger(logger)
-
 	currentDir, err := os.Getwd()
 	if err != nil {
 		logger.Errorf("Failed to get current directory: %v", err)
@@ -58,22 +54,31 @@ func main() {
 		logger.Fatalf("commands.yaml not found at %s", commandsYamlPath)
 	}
 
+	// Load commands
+	err = bot.LoadCommands(commandsYamlPath)
+	if err != nil {
+		logger.Fatalf("Error loading commands: %v", err)
+	}
+
 	if err := bot.InitDB(config, logger); err != nil {
 		logger.Fatalf("Error initializing database: %v", err)
 	}
 
-	bot.RegisterCommands()
-
+	var discordBot *bot.Bot
 	if config.Discord.Enabled {
 		logger.Debug("Attempting to initialize Discord bot...")
 
-		err := bot.InitDiscord(config.Discord.Token, logger)
+		discordBot, err = bot.NewBot(config, logger)
 		if err != nil {
-			logger.Errorf("Error initializing Discord: %v", err)
-			logger.Warn("Continuing without Discord functionality")
-		} else {
-			logger.Info("Discord bot initialized successfully")
+			logger.Fatalf("Error creating bot: %v", err)
 		}
+
+		err = discordBot.Start()
+		if err != nil {
+			logger.Fatalf("Error starting bot: %v", err)
+		}
+
+		logger.Info("Discord bot initialized and started successfully")
 	} else {
 		logger.Info("Discord bot is disabled in configuration")
 	}
@@ -99,11 +104,11 @@ func main() {
 
 	logger.Info("Shutting down server...")
 
-	if config.Discord.Enabled {
-		if err := bot.CloseDiscord(); err != nil {
-			logger.Errorf("Error closing Discord connection: %v", err)
+	if config.Discord.Enabled && discordBot != nil {
+		if err := discordBot.Shutdown(); err != nil {
+			logger.Errorf("Error shutting down bot: %v", err)
 		} else {
-			logger.Info("Discord connection closed successfully")
+			logger.Info("Bot shut down successfully")
 		}
 	}
 

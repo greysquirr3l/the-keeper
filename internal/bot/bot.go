@@ -73,13 +73,15 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	commandConfig, err := LoadCommandConfig("commands.yaml")
+	b.logger.Debugf("Received message: %s from user: %s", m.Content, m.Author.Username)
+
+	err := LoadCommands(b.Config.Paths.CommandsConfig)
 	if err != nil {
 		b.logger.Errorf("Failed to load command config: %v", err)
 		return
 	}
 
-	HandleCommand(s, m, commandConfig)
+	HandleCommand(s, m, b.Config)
 }
 
 func (b *Bot) IsAdmin(s *discordgo.Session, guildID, userID string) bool {

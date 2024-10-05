@@ -2,90 +2,110 @@ prefix: "!"
 commands:
   id:
     description: "Manage player IDs"
-    usage: "!id <add|edit|remove|list> [arguments]"
+    usage: "!id <subcommand> [arguments]"
     cooldown: "3s"
+    handler: "handleIDCommand"
+    hidden: false
     subcommands:
       add:
         description: "Add a new player ID"
         usage: "!id add <playerID>"
         cooldown: "2s"
+        handler: "handleIDAddCommand"
         hidden: false
       edit:
         description: "Edit an existing player ID"
         usage: "!id edit <newPlayerID>"
         cooldown: "3s"
+        handler: "handleIDEditCommand"
         hidden: false
       remove:
         description: "Remove a player ID"
         usage: "!id remove <playerID>"
         cooldown: "5s"
+        handler: "handleIDRemoveCommand"
         hidden: false
       list:
         description: "List player IDs"
         usage: "!id list"
         cooldown: "10s"
+        handler: "handleIDListCommand"
         hidden: false
 
   term:
     description: "Manage terms"
     usage: "!term <add|edit|remove|list> [arguments]"
     cooldown: "3s"
+    handler: "placeholderHandler"
+    hidden: false
     subcommands:
       add:
         description: "Add a new term"
         usage: "!term add <title> <description>"
         cooldown: "2s"
+        handler: "placeholderHandler"
         hidden: false
       edit:
         description: "Edit an existing term"
         usage: "!term edit <title> <new description>"
         cooldown: "3s"
+        handler: "placeholderHandler"
         hidden: false
       remove:
         description: "Remove a term"
         usage: "!term remove <title>"
         cooldown: "5s"
+        handler: "placeholderHandler"
         hidden: false
       list:
         description: "List all terms"
         usage: "!term list"
         cooldown: "10s"
+        handler: "placeholderHandler"
         hidden: false
 
   giftcode:
     description: "Manage gift codes"
     usage: "!giftcode <redeem|deploy|validate|list> <GiftCode>"
     cooldown: "3s"
+    handler: "placeholderHandler"
+    hidden: false
     subcommands:
       redeem:
         description: "Redeem a gift code"
         usage: "!giftcode redeem <GiftCode>"
         cooldown: "3s"
+        handler: "placeholderHandler"
         hidden: true
       deploy:
         description: "Deploy a gift code to all users (admin only)"
         usage: "!giftcode deploy <GiftCode>"
         cooldown: "30s"
+        handler: "placeholderHandler"
         hidden: true
       validate:
         description: "Validate a gift code"
         usage: "!giftcode validate <GiftCode>"
         cooldown: "2s"
+        handler: "placeholderHandler"
         hidden: true
       list:
         description: "List redeemed gift codes"
         usage: "!giftcode list"
         cooldown: "10s"
+        handler: "placeholderHandler"
         hidden: true
 
   scrape:
     description: "Manually trigger gift code scraping"
     usage: "!scrape"
     cooldown: "60s"
+    handler: "placeholderHandler"
     hidden: true
 
   help:
     description: "Show help information"
     usage: "!help [command]"
     cooldown: "3s"
+    handler: "handleHelpCommand"
     hidden: false
