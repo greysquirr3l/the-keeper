@@ -3,10 +3,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,7 +16,7 @@ import (
 )
 
 func listDirectoryContents(path string, logger *logrus.Logger) {
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		logger.Errorf("Failed to read directory %s: %v", path, err)
 		return
@@ -31,10 +28,15 @@ func listDirectoryContents(path string, logger *logrus.Logger) {
 	}
 }
 
-func checkConfiguration(config *bot.Config) error {
+func checkConfiguration(config *bot.Config, logger *logrus.Logger) error {
 	if config.Discord.Token == "" {
 		return fmt.Errorf("Discord token is not set")
 	}
+	logger.WithFields(logrus.Fields{
+		"APIEndpoint": config.GiftCode.APIEndpoint,
+		"MinLength":   config.GiftCode.MinLength,
+		"MaxLength":   config.GiftCode.MaxLength,
+	}).Info("Gift Code Configuration")
 	if config.GiftCode.APIEndpoint == "" {
 		return fmt.Errorf("Gift code API endpoint is not set")
 	}
@@ -68,17 +70,14 @@ func performStartupChecks(b *bot.Bot) error {
 func main() {
 	config, err := bot.LoadConfig()
 	if err != nil {
-		log.Fatalf("Error loading config: %v", err)
+		logrus.Fatalf("Error loading config: %v", err)
 	}
-
-	if err := checkConfiguration(config); err != nil {
-		log.Fatalf("Configuration error: %v", err)
-	}
-
-	// Set the gift code base URL after loading the config
-	bot.SetGiftCodeBaseURL(config)
 
 	logger := bot.InitializeLogger(config)
+
+	if err := checkConfiguration(config, logger); err != nil {
+		logger.Fatalf("Configuration error: %v", err)
+	}
 
 	logger.Debug("Logger initialized with level:", logger.GetLevel())
 
@@ -172,9 +171,6 @@ func handleOAuth2Callback(logger *logrus.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Received OAuth2 callback request")
 
-		// Log the entire request for debugging purposes
-		logRequest(r, logger)
-
 		// Parse the query parameters
 		err := r.ParseForm()
 		if err != nil {
@@ -189,29 +185,9 @@ func handleOAuth2Callback(logger *logrus.Logger) http.HandlerFunc {
 			"state": r.Form.Get("state"),
 		}).Info("OAuth2 callback parameters")
 
-		// You can add more processing here if needed
-
 		// Respond to the client
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OAuth2 callback received"))
 		logger.Info("OAuth2 callback processed successfully")
-	}
-}
-
-func logRequest(r *http.Request, logger *logrus.Logger) {
-	// Create a map to store request details
-	requestDetails := map[string]interface{}{
-		"Method":     r.Method,
-		"RequestURI": r.RequestURI,
-		"RemoteAddr": r.RemoteAddr,
-		"Header":     r.Header,
-	}
-
-	// Log the request details as JSON
-	jsonDetails, err := json.MarshalIndent(requestDetails, "", "  ")
-	if err != nil {
-		logger.Errorf("Error marshaling request details: %v", err)
-	} else {
-		logger.Infof("Received request details: %s", string(jsonDetails))
 	}
 }

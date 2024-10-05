@@ -1,4 +1,5 @@
-// config.go
+// File: internal/bot/config.go
+
 package bot
 
 import (
@@ -11,44 +12,40 @@ import (
 	"github.com/spf13/viper"
 )
 
-// File: internal/bot/config.go
-
 type Config struct {
 	Discord struct {
-		Token         string `yaml:"token"`
-		ClientID      string `yaml:"client_id"`
-		ClientSecret  string `yaml:"client_secret"`
-		RoleID        string `yaml:"RoleID"`
-		RedirectURL   string `yaml:"redirect_url"`
-		Enabled       bool   `yaml:"enabled"`
-		CommandPrefix string `yaml:"command_prefix"`
-	} `yaml:"discord"`
+		Token         string `mapstructure:"token"`
+		ClientID      string `mapstructure:"client_id"`
+		ClientSecret  string `mapstructure:"client_secret"`
+		RoleID        string `mapstructure:"RoleID"`
+		RedirectURL   string `mapstructure:"redirect_url"`
+		Enabled       bool   `mapstructure:"enabled"`
+		CommandPrefix string `mapstructure:"command_prefix"`
+	} `mapstructure:"discord"`
 	Server struct {
-		Port string `yaml:"port"`
-	} `yaml:"server"`
+		Port string `mapstructure:"port"`
+	} `mapstructure:"server"`
 	Logging struct {
-		LogLevel string `yaml:"log_level"`
-	} `yaml:"logging"`
+		LogLevel string `mapstructure:"log_level"`
+	} `mapstructure:"logging"`
 	Paths struct {
-		CommandsConfig string `yaml:"commands_config"`
-	} `yaml:"paths"`
+		CommandsConfig string `mapstructure:"commands_config"`
+	} `mapstructure:"paths"`
 	Database struct {
-		VolumeMountPath string `yaml:"volumeMountPath"`
-		Name            string `yaml:"name"`
-		Path            string `yaml:"path"`
-	} `yaml:"database"`
+		VolumeMountPath string `mapstructure:"volumeMountPath"`
+		Name            string `mapstructure:"name"`
+		Path            string `mapstructure:"path"`
+	} `mapstructure:"database"`
 	GiftCode struct {
-		Salt        string        `yaml:"salt"`
-		MinLength   int           `yaml:"min_length"`
-		MaxLength   int           `yaml:"max_length"`
-		APIEndpoint string        `yaml:"api_endpoint"`
-		APITimeout  time.Duration `yaml:"api_timeout"`
-	} `yaml:"gift_code"`
+		Salt        string        `mapstructure:"salt"`
+		MinLength   int           `mapstructure:"min_length"`
+		MaxLength   int           `mapstructure:"max_length"`
+		APIEndpoint string        `mapstructure:"api_endpoint"`
+		APITimeout  time.Duration `mapstructure:"api_timeout"`
+	} `mapstructure:"gift_code"`
 }
 
 var config *Config
-
-// TODO: Update other files to use viper.
 
 func LoadConfig() (*Config, error) {
 	viper.SetConfigName("config")
@@ -98,7 +95,6 @@ func LoadConfig() (*Config, error) {
 	if redirectURL := os.Getenv("RAILWAY_PUBLIC_DOMAIN"); redirectURL != "" {
 		config.Discord.RedirectURL = redirectURL + "/oauth2/callback"
 	}
-	// TODO: update to add giftcode defaults.
 
 	// Set database path
 	if dbPath := os.Getenv("RAILWAY_VOLUME_MOUNT_PATH"); dbPath != "" {
@@ -121,10 +117,16 @@ func LoadConfig() (*Config, error) {
 		config.Paths.CommandsConfig = "configs/commands.yaml"
 	}
 
+	logrus.WithFields(logrus.Fields{
+		"DiscordEnabled": config.Discord.Enabled,
+		"ServerPort":     config.Server.Port,
+		"LogLevel":       config.Logging.LogLevel,
+		"GiftCodeAPI":    config.GiftCode.APIEndpoint,
+	}).Info("Loaded configuration")
+
 	return config, nil
 }
 
-// GetConfig returns the current configuration
 func GetConfig() *Config {
 	return config
 }

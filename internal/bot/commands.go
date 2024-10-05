@@ -5,15 +5,9 @@ package bot
 import (
 	"fmt"
 	"io/ioutil"
-
-	// "os"
-
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
-
-	// "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
@@ -25,9 +19,8 @@ type Command struct {
 	Usage       string
 	Cooldown    string
 	Hidden      bool
-	Handler     string // Name of the handler function
+	Handler     string
 	Subcommands map[string]*Command
-	HandlerFunc CommandHandler // The actual function to be called
 }
 
 type CommandConfig struct {
@@ -40,18 +33,13 @@ var (
 	HandlerRegistry = make(map[string]CommandHandler)
 )
 
-var globalLogger *logrus.Logger
-
-func SetLogger(logger *logrus.Logger) {
-	globalLogger = logger
+func RegisterHandler(name string, handler CommandHandler) {
+	HandlerRegistry[name] = handler
 }
 
-// func LoadCommands(configPath string, logger *logrus.Logger) error {
 func LoadCommands(configPath string) error {
-	// // TODO: LoadCommands(configPath string) error {
 	data, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		globalLogger.Errorf("Error reading command config file: %v", err)
 		return fmt.Errorf("error reading command config file: %w", err)
 	}
 
@@ -61,27 +49,7 @@ func LoadCommands(configPath string) error {
 		return fmt.Errorf("error unmarshaling command config: %w", err)
 	}
 
-	// handlersDir := "./bot/handlers" // Set the correct handlers directory path
-
-	for name, cmd := range config.Commands {
-		CommandRegistry[name] = cmd
-
-		if handler, exists := HandlerRegistry[cmd.Handler]; exists {
-			cmd.HandlerFunc = handler
-		} else {
-			globalLogger.Warnf("Handler not found for command: %s", name)
-		}
-
-		for subName, subCmd := range cmd.Subcommands {
-			if handler, exists := HandlerRegistry[subCmd.Handler]; exists {
-				subCmd.HandlerFunc = handler
-			} else {
-				globalLogger.Warnf("Handler not found for subcommand: %s %s", name, subName)
-			}
-		}
-	}
-
-	globalLogger.Info("Commands loaded successfully")
+	CommandRegistry = config.Commands
 	return nil
 }
 
@@ -100,19 +68,28 @@ func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, config *Con
 
 	if len(args) > 1 && cmd.Subcommands != nil {
 		subCmd, subExists := cmd.Subcommands[args[1]]
-		if subExists && subCmd.HandlerFunc != nil {
-			subCmd.HandlerFunc(s, m, args[2:], subCmd)
-			return
+		if subExists && subCmd.Handler != "" {
+			if handler, ok := HandlerRegistry[subCmd.Handler]; ok {
+				handler(s, m, args[2:], subCmd)
+				return
+			}
 		}
 	}
 
-	if cmd.HandlerFunc != nil {
-		cmd.HandlerFunc(s, m, args[1:], cmd)
+	if cmd.Handler != "" {
+		if handler, ok := HandlerRegistry[cmd.Handler]; ok {
+			handler(s, m, args[1:], cmd)
+		} else {
+			SendMessage(s, m.ChannelID, "This command is not implemented.")
+		}
 	} else {
 		SendMessage(s, m.ChannelID, "This command is not implemented.")
 	}
 }
 
-func RegisterHandler(name string, handler CommandHandler) {
-	HandlerRegistry[name] = handler
-}
+// func SendMessage(s *discordgo.Session, channelID string, message string) {
+//	_, err := s.ChannelMessageSend(channelID, message)
+//	if err != nil {
+//		fmt.Printf("Error sending message: %v\n", err)
+//	}
+//}

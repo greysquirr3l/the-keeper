@@ -1,3 +1,5 @@
+// File: internal/bot/discord.go
+
 package bot
 
 import (
@@ -66,6 +68,7 @@ func InitDiscord(token string, logger *logrus.Logger) error {
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Ignore messages from the bot itself
 	if m.Author.ID == s.State.User.ID {
 		return
 	}

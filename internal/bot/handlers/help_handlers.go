@@ -1,4 +1,4 @@
-// File: internal/bot/help_handlers.go
+// File: internal/bot/handlers/help_handlers.go
 
 package handlers
 
@@ -6,19 +6,19 @@ import (
 	"fmt"
 	"strings"
 
+	"the-keeper/internal/bot"
+
 	"github.com/bwmarrin/discordgo"
 )
 
 func init() {
-	RegisterHandler("handleHelpCommand", handleHelpCommand)
+	bot.RegisterHandler("handleHelpCommand", handleHelpCommand)
 }
 
-func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
+func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) == 0 {
-		// General help
 		sendGeneralHelp(s, m.ChannelID)
 	} else {
-		// Specific command help
 		sendCommandHelp(s, m.ChannelID, args[0])
 	}
 }
@@ -27,20 +27,20 @@ func sendGeneralHelp(s *discordgo.Session, channelID string) {
 	var helpMessage strings.Builder
 	helpMessage.WriteString("Available commands:\n")
 
-	for _, cmd := range CommandRegistry {
+	for _, cmd := range bot.CommandRegistry {
 		if !cmd.Hidden {
 			helpMessage.WriteString(fmt.Sprintf("!%s: %s\n", cmd.Name, cmd.Description))
 		}
 	}
 
 	helpMessage.WriteString("\nUse !help <command> for more information on a specific command.")
-	SendMessage(s, channelID, helpMessage.String())
+	bot.SendMessage(s, channelID, helpMessage.String())
 }
 
 func sendCommandHelp(s *discordgo.Session, channelID string, commandName string) {
-	cmd, exists := CommandRegistry[commandName]
+	cmd, exists := bot.CommandRegistry[commandName]
 	if !exists || cmd.Hidden {
-		SendMessage(s, channelID, "Unknown command.")
+		bot.SendMessage(s, channelID, "Unknown command.")
 		return
 	}
 
@@ -61,5 +61,5 @@ func sendCommandHelp(s *discordgo.Session, channelID string, commandName string)
 		}
 	}
 
-	SendMessage(s, channelID, helpMessage.String())
+	bot.SendMessage(s, channelID, helpMessage.String())
 }
