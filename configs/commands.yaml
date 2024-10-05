@@ -66,35 +66,30 @@ commands:
 
   giftcode:
     description: "Manage gift codes"
-    usage: "!giftcode <redeem|deploy|validate|list> <GiftCode>"
+    usage: "!giftcode <subcommand> [arguments]"
     cooldown: "3s"
-    handler: "placeholderHandler"
-    hidden: false
+    handler: "handleGiftCodeCommand"
     subcommands:
       redeem:
         description: "Redeem a gift code"
         usage: "!giftcode redeem <GiftCode>"
         cooldown: "3s"
-        handler: "placeholderHandler"
-        hidden: true
+        handler: "handleGiftCodeRedeemCommand"
       deploy:
         description: "Deploy a gift code to all users (admin only)"
         usage: "!giftcode deploy <GiftCode>"
         cooldown: "30s"
-        handler: "placeholderHandler"
-        hidden: true
+        handler: "handleGiftCodeDeployCommand"
       validate:
         description: "Validate a gift code"
         usage: "!giftcode validate <GiftCode>"
         cooldown: "2s"
-        handler: "placeholderHandler"
-        hidden: true
+        handler: "handleGiftCodeValidateCommand"
       list:
         description: "List redeemed gift codes"
-        usage: "!giftcode list"
+        usage: "!giftcode list [page]"
         cooldown: "10s"
-        handler: "placeholderHandler"
-        hidden: true
+        handler: "handleGiftCodeListCommand"
 
   scrape:
     description: "Manually trigger gift code scraping"

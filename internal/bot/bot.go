@@ -76,6 +76,8 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	b.logger.Debugf("Received message: %s from user: %s", m.Content, m.Author.Username)
 
 	err := LoadCommands(b.Config.Paths.CommandsConfig)
+	// TODO: err = LoadCommands(b.Config.Paths.CommandsConfig) err := LoadCommands(b.Config.Paths.CommandsConfig)
+
 	if err != nil {
 		b.logger.Errorf("Failed to load command config: %v", err)
 		return

@@ -2,6 +2,7 @@
 package bot
 
 import (
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -49,4 +50,9 @@ func CheckCooldown(userID, command, cooldownStr string) bool {
 
 	cooldownCache.Set(key, true, duration)
 	return true
+}
+
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	return err == nil || !os.IsNotExist(err)
 }

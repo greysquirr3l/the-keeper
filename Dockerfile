@@ -45,8 +45,8 @@ COPY --from=builder /app/the-keeper .
 COPY configs ./configs
 
 # Replace environment variables in config.template.yaml at runtime
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Expose the port the app will run on
 EXPOSE 8080

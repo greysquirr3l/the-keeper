@@ -75,6 +75,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	config := GetConfig()
 	err := LoadCommands(config.Paths.CommandsConfig)
+	// TODO: err := LoadCommands(config.Paths.CommandsConfig)
 	if err != nil {
 		discordLogger.Errorf("Failed to load command config: %v", err)
 		return

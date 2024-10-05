@@ -1,12 +1,14 @@
 // File: internal/bot/id_handlers.go
 
-package bot
+package handlers
 
 import (
 	"fmt"
 	"regexp"
 	"strings"
 	"sync"
+
+	"the-keeper/internal/bot"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -16,6 +18,33 @@ var (
 	playerIDs     = make(map[string]string) // map[DiscordID]PlayerID
 	playerIDMutex sync.RWMutex
 )
+
+func init() {
+	RegisterHandler("handleIDCommand", handleIDCommand)
+	RegisterHandler("handleIDAddCommand", handleIDAddCommand)
+	RegisterHandler("handleIDEditCommand", handleIDEditCommand)
+	RegisterHandler("handleIDRemoveCommand", handleIDRemoveCommand)
+	RegisterHandler("handleIDListCommand", handleIDListCommand)
+}
+
+func handleIDCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
+	// Generate help message dynamically from commands.yaml
+	var helpMsg strings.Builder
+	helpMsg.WriteString("Available ID subcommands:\n")
+
+	for subName, subCmd := range cmd.Subcommands {
+		if !subCmd.Hidden {
+			helpMsg.WriteString(fmt.Sprintf("  %s: %s\n", subName, subCmd.Description))
+			helpMsg.WriteString(fmt.Sprintf("    Usage: %s\n", subCmd.Usage))
+			if subCmd.Cooldown != "" {
+				helpMsg.WriteString(fmt.Sprintf("    Cooldown: %s\n", subCmd.Cooldown))
+			}
+			helpMsg.WriteString("\n")
+		}
+	}
+
+	bot.SendMessage(s, m.ChannelID, helpMsg.String())
+}
 
 func handleIDAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
 	if len(args) < 1 {
@@ -85,3 +114,5 @@ func handleIDListCommand(s *discordgo.Session, m *discordgo.MessageCreate, args 
 
 	SendMessage(s, m.ChannelID, response.String())
 }
+
+// ---------

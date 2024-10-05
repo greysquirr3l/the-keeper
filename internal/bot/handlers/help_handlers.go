@@ -1,6 +1,6 @@
 // File: internal/bot/help_handlers.go
 
-package bot
+package handlers
 
 import (
 	"fmt"
