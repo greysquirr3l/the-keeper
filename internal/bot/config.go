@@ -135,7 +135,7 @@ func InitializeLogger(config *Config) *logrus.Logger {
 	log := logrus.New()
 	level, err := logrus.ParseLevel(config.Logging.LogLevel)
 	if err != nil {
-		level = logrus.InfoLevel
+		level = logrus.InfoLevel // Default to info if parsing fails
 	}
 	log.SetLevel(level)
 	log.SetFormatter(&logrus.TextFormatter{

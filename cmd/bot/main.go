@@ -40,12 +40,10 @@ func checkConfiguration(config *bot.Config, logger *logrus.Logger) error {
 	if config.GiftCode.APIEndpoint == "" {
 		return fmt.Errorf("Gift code API endpoint is not set")
 	}
-	// Add more checks as needed
 	return nil
 }
 
 func performStartupChecks(b *bot.Bot) error {
-	// Check database connection
 	sqlDB, err := b.DB.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get database instance: %w", err)
@@ -54,14 +52,8 @@ func performStartupChecks(b *bot.Bot) error {
 		return fmt.Errorf("database connection failed: %w", err)
 	}
 
-	// Check Discord connection
 	if _, err := b.Session.User("@me"); err != nil {
 		return fmt.Errorf("Discord connection failed: %w", err)
-	}
-
-	// Load commands
-	if err := bot.LoadCommands(b.Config.Paths.CommandsConfig); err != nil {
-		return fmt.Errorf("failed to load commands: %w", err)
 	}
 
 	return nil
@@ -91,16 +83,9 @@ func main() {
 	listDirectoryContents(currentDir, logger)
 	listDirectoryContents(filepath.Join(currentDir, "configs"), logger)
 
-	// Check if commands.yaml exists
 	commandsYamlPath := filepath.Join("configs", "commands.yaml")
 	if _, err := os.Stat(commandsYamlPath); os.IsNotExist(err) {
 		logger.Fatalf("commands.yaml not found at %s", commandsYamlPath)
-	}
-
-	// Load commands
-	err = bot.LoadCommands(commandsYamlPath)
-	if err != nil {
-		logger.Fatalf("Error loading commands: %v", err)
 	}
 
 	var discordBot *bot.Bot
@@ -126,7 +111,6 @@ func main() {
 		logger.Info("Discord bot is disabled in configuration")
 	}
 
-	// Set up HTTP server
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/healthz", handleHealthCheck)
 	http.HandleFunc("/oauth2/callback", handleOAuth2Callback(logger))
@@ -140,7 +124,6 @@ func main() {
 
 	logger.Info("Server is now running. Press CTRL+C to exit.")
 
-	// Wait for interrupt signal to gracefully shut down the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -171,7 +154,6 @@ func handleOAuth2Callback(logger *logrus.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Received OAuth2 callback request")
 
-		// Parse the query parameters
 		err := r.ParseForm()
 		if err != nil {
 			logger.Errorf("Error parsing form: %v", err)
@@ -179,13 +161,11 @@ func handleOAuth2Callback(logger *logrus.Logger) http.HandlerFunc {
 			return
 		}
 
-		// Log the query parameters
 		logger.WithFields(logrus.Fields{
 			"code":  r.Form.Get("code"),
 			"state": r.Form.Get("state"),
 		}).Info("OAuth2 callback parameters")
 
-		// Respond to the client
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OAuth2 callback received"))
 		logger.Info("OAuth2 callback processed successfully")

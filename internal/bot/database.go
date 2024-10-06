@@ -1,8 +1,10 @@
 // database.go
+
 package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -78,6 +80,8 @@ func InitDB(config *Config, logger *logrus.Logger) (*gorm.DB, error) {
 	return db, nil
 }
 
+// TODO: terms is very weakly implemented.
+
 func AddTerm(term, description string) error {
 	return db.Create(&Term{Term: term, Description: description}).Error
 }
@@ -132,6 +136,20 @@ func EditPlayerID(discordID, newPlayerID string) error {
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("player not found")
 	}
+	return nil
+}
+
+func RemovePlayerID(discordID string) error {
+
+	result := db.Model(&Player{}).Where("discord_id = ?", discordID).Update("player_id", nil)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("no player found with the given Discord ID")
+	}
+
 	return nil
 }
 

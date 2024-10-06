@@ -15,11 +15,43 @@ func init() {
 	bot.RegisterHandler("handleHelpCommand", handleHelpCommand)
 }
 
-func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
+func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
 	if len(args) == 0 {
-		sendGeneralHelp(s, m.ChannelID)
+		// General help
+		var helpMessage strings.Builder
+		helpMessage.WriteString("Available commands:\n")
+
+		for name, cmd := range CommandRegistry {
+			if !cmd.Hidden {
+				helpMessage.WriteString(fmt.Sprintf("%s: %s\n", name, cmd.Description))
+			}
+		}
+
+		helpMessage.WriteString("\nUse !help <command> for more information on a specific command.")
+		SendMessage(s, m.ChannelID, helpMessage.String())
 	} else {
-		sendCommandHelp(s, m.ChannelID, args[0])
+		// Specific command help
+		cmdName := args[0]
+		if cmd, exists := CommandRegistry[cmdName]; exists && !cmd.Hidden {
+			var helpMessage strings.Builder
+			helpMessage.WriteString(fmt.Sprintf("Help for %s:\n", cmdName))
+			helpMessage.WriteString(fmt.Sprintf("Description: %s\n", cmd.Description))
+			helpMessage.WriteString(fmt.Sprintf("Usage: %s\n", cmd.Usage))
+			if cmd.Cooldown != "" {
+				helpMessage.WriteString(fmt.Sprintf("Cooldown: %s\n", cmd.Cooldown))
+			}
+			if len(cmd.Subcommands) > 0 {
+				helpMessage.WriteString("Subcommands:\n")
+				for subName, subCmd := range cmd.Subcommands {
+					if !subCmd.Hidden {
+						helpMessage.WriteString(fmt.Sprintf("  %s: %s\n", subName, subCmd.Description))
+					}
+				}
+			}
+			SendMessage(s, m.ChannelID, helpMessage.String())
+		} else {
+			SendMessage(s, m.ChannelID, "Unknown command. Use !help to see available commands.")
+		}
 	}
 }
 

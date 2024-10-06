@@ -13,12 +13,12 @@ import (
 )
 
 type Bot struct {
-	Config       *Config
-	Session      *discordgo.Session
-	DB           *gorm.DB
-	shutdownChan chan struct{}
-	logger       *logrus.Logger
-	Managers     map[string]interface{}
+	Config          *Config
+	Session         *discordgo.Session
+	DB              *gorm.DB
+	shutdownChan    chan struct{}
+	logger          *logrus.Logger
+	HandlerRegistry map[string]CommandHandler
 }
 
 func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
@@ -28,11 +28,11 @@ func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
 	}
 
 	bot := &Bot{
-		Config:       config,
-		DB:           db,
-		shutdownChan: make(chan struct{}),
-		logger:       logger,
-		Managers:     make(map[string]interface{}),
+		Config:          config,
+		DB:              db,
+		shutdownChan:    make(chan struct{}),
+		logger:          logger,
+		HandlerRegistry: make(map[string]CommandHandler),
 	}
 
 	if config.Discord.Enabled {
@@ -43,20 +43,31 @@ func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
 		bot.Session = session
 	}
 
-	// Dynamically load managers
-	if err := bot.loadManagers(); err != nil {
-		return nil, fmt.Errorf("failed to load managers: %w", err)
+	if err := bot.loadHandlers(); err != nil {
+		return nil, fmt.Errorf("failed to load handlers: %w", err)
 	}
-
-	// Set the gift code base URL
-	SetGiftCodeBaseURL(config)
 
 	return bot, nil
 }
 
-func (b *Bot) loadManagers() error {
-	managersDir := "./internal/bot/handlers"
-	files, err := filepath.Glob(filepath.Join(managersDir, "*.so"))
+func (b *Bot) Start() error {
+	if b.Config.Discord.Enabled {
+		if err := InitDiscord(b.Config.Discord.Token, b.logger); err != nil {
+			return fmt.Errorf("failed to initialize Discord: %w", err)
+		}
+	}
+
+	if err := LoadCommands(b.Config.Paths.CommandsConfig, b.logger, b.HandlerRegistry); err != nil {
+		return fmt.Errorf("failed to load commands: %w", err)
+	}
+
+	b.logger.Info("Bot has been started")
+	return nil
+}
+
+func (b *Bot) loadHandlers() error {
+	handlersDir := "./internal/bot/handlers"
+	files, err := filepath.Glob(filepath.Join(handlersDir, "*.so"))
 	if err != nil {
 		return fmt.Errorf("failed to read handlers directory: %w", err)
 	}
@@ -68,35 +79,28 @@ func (b *Bot) loadManagers() error {
 			continue
 		}
 
-		newFunc, err := p.Lookup("New")
+		registerSymbol, err := p.Lookup("Register")
 		if err != nil {
-			b.logger.Errorf("Failed to find New function in handler %s: %v", file, err)
+			b.logger.Errorf("Failed to find Register function in handler %s: %v", file, err)
 			continue
 		}
 
-		manager, err := newFunc.(func(*Config, *logrus.Logger) (interface{}, error))(b.Config, b.logger)
-		if err != nil {
-			b.logger.Errorf("Failed to create manager from handler %s: %v", file, err)
+		registerFunc, ok := registerSymbol.(func(*Bot))
+		if !ok {
+			b.logger.Errorf("Invalid Register function signature in handler %s", file)
 			continue
 		}
 
-		managerName := filepath.Base(file[:len(file)-3]) // Remove .so extension
-		b.Managers[managerName] = manager
-		b.logger.Infof("Loaded Handlers: %s", managerName)
+		registerFunc(b)
+		b.logger.Infof("Successfully loaded handler: %s", file)
 	}
 
 	return nil
 }
 
-func (b *Bot) Start() error {
-	if b.Config.Discord.Enabled {
-		if err := b.initDiscord(); err != nil {
-			return fmt.Errorf("failed to initialize Discord: %w", err)
-		}
-	}
-
-	b.logger.Info("Bot has been started")
-	return nil
+func (b *Bot) RegisterHandler(name string, handler CommandHandler) {
+	b.HandlerRegistry[name] = handler
+	b.logger.Debugf("Registered handler: %s", name)
 }
 
 func (b *Bot) Shutdown() error {
@@ -105,20 +109,16 @@ func (b *Bot) Shutdown() error {
 			b.logger.WithError(err).Error("Error closing Discord session")
 		}
 	}
-	b.logger.Info("Bot has been shut down")
-	return nil
-}
 
-func (b *Bot) initDiscord() error {
-	b.Session.AddHandler(b.messageCreate)
-	b.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
-
-	err := b.Session.Open()
-	if err != nil {
-		return fmt.Errorf("error opening Discord session: %w", err)
+	if sqlDB, err := b.DB.DB(); err == nil {
+		if err := sqlDB.Close(); err != nil {
+			b.logger.Errorf("Error closing database connection: %v", err)
+		} else {
+			b.logger.Info("Database connection closed successfully")
+		}
 	}
 
-	b.logger.Info("Discord bot is now running")
+	b.logger.Info("Bot has been shut down")
 	return nil
 }
 
@@ -129,7 +129,7 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	b.logger.Debugf("Received message: %s from user: %s", m.Content, m.Author.Username)
 
-	err := LoadCommands(b.Config.Paths.CommandsConfig)
+	err := LoadCommands(b.Config.Paths.CommandsConfig, b.logger, b.HandlerRegistry)
 	if err != nil {
 		b.logger.Errorf("Failed to load command config: %v", err)
 		return

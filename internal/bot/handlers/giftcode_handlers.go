@@ -1,24 +1,31 @@
 // File: ./internal/bot/handlers/giftcode_handlers.go
+// TODO: Fix this nonsense
 
 package handlers
 
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"the-keeper/internal/bot"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sirupsen/logrus"
 )
 
 func init() {
 	bot.RegisterHandler("handleGiftCodeCommand", handleGiftCodeCommand)
+	bot.RegisterHandler("handleGiftCodeRedeemCommand", handleGiftCodeRedeemCommand)
+	bot.RegisterHandler("handleGiftCodeDeployCommand", handleGiftCodeDeployCommand)
+	bot.RegisterHandler("handleGiftCodeValidateCommand", handleGiftCodeValidateCommand)
+	bot.RegisterHandler("handleGiftCodeListCommand", handleGiftCodeListCommand)
 }
 
 func handleGiftCodeCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) == 0 {
 		sendGiftCodeHelp(s, m.ChannelID, cmd)
+		bot.SendMessage(s, m.ChannelID, "SubCommands Are Not Implemented Yet... Sorry!  See s0ma.")
+
 		return
 	}
 

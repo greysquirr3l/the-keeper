@@ -1,4 +1,4 @@
-// File: internal/bot/id_handlers.go
+// File: internal/bot/handlers/id_handlers.go
 
 package handlers
 
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 
 	"the-keeper/internal/bot"
 
@@ -15,16 +14,14 @@ import (
 
 var (
 	playerIDRegex = regexp.MustCompile(`^\d{3,12}$`)
-	playerIDs     = make(map[string]string) // map[DiscordID]PlayerID
-	playerIDMutex sync.RWMutex
 )
 
 func init() {
-	RegisterHandler("handleIDCommand", handleIDCommand)
-	RegisterHandler("handleIDAddCommand", handleIDAddCommand)
-	RegisterHandler("handleIDEditCommand", handleIDEditCommand)
-	RegisterHandler("handleIDRemoveCommand", handleIDRemoveCommand)
-	RegisterHandler("handleIDListCommand", handleIDListCommand)
+	bot.RegisterHandler("handleIDCommand", handleIDCommand)
+	bot.RegisterHandler("handleIDAddCommand", handleIDAddCommand)
+	bot.RegisterHandler("handleIDEditCommand", handleIDEditCommand)
+	bot.RegisterHandler("handleIDRemoveCommand", handleIDRemoveCommand)
+	bot.RegisterHandler("handleIDListCommand", handleIDListCommand)
 }
 
 func handleIDCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
@@ -46,73 +43,80 @@ func handleIDCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []st
 	bot.SendMessage(s, m.ChannelID, helpMsg.String())
 }
 
-func handleIDAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
+func handleIDAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) < 1 {
-		SendMessage(s, m.ChannelID, "Usage: !id add <playerID>")
+		bot.SendMessage(s, m.ChannelID, "Usage: !id add <playerID>")
 		return
 	}
 
 	playerID := args[0]
 	if !playerIDRegex.MatchString(playerID) {
-		SendMessage(s, m.ChannelID, "Invalid playerID. It should be a number between 3 and 12 digits.")
+		bot.SendMessage(s, m.ChannelID, "Invalid playerID. It should be a number between 3 and 12 digits.")
 		return
 	}
 
-	playerIDMutex.Lock()
-	playerIDs[m.Author.ID] = playerID
-	playerIDMutex.Unlock()
+	err := bot.AddPlayer(m.Author.ID, playerID)
+	if err != nil {
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Error adding player ID: %v", err))
+		return
+	}
 
-	SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s has been added for user %s.", playerID, m.Author.Username))
+	bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s has been added for user %s.", playerID, m.Author.Username))
 }
 
-func handleIDEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
+func handleIDEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) < 1 {
-		SendMessage(s, m.ChannelID, "Usage: !id edit <newPlayerID>")
+		bot.SendMessage(s, m.ChannelID, "Usage: !id edit <newPlayerID>")
 		return
 	}
 
 	newPlayerID := args[0]
 	if !playerIDRegex.MatchString(newPlayerID) {
-		SendMessage(s, m.ChannelID, "Invalid playerID. It should be a number between 3 and 12 digits.")
+		bot.SendMessage(s, m.ChannelID, "Invalid playerID. It should be a number between 3 and 12 digits.")
 		return
 	}
 
-	playerIDMutex.Lock()
-	playerIDs[m.Author.ID] = newPlayerID
-	playerIDMutex.Unlock()
+	err := bot.EditPlayerID(m.Author.ID, newPlayerID)
+	if err != nil {
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Error editing player ID: %v", err))
+		return
+	}
 
-	SendMessage(s, m.ChannelID, fmt.Sprintf("Your player ID has been updated to %s.", newPlayerID))
+	bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Your player ID has been updated to %s.", newPlayerID))
 }
 
-func handleIDRemoveCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
-	playerIDMutex.Lock()
-	delete(playerIDs, m.Author.ID)
-	playerIDMutex.Unlock()
+func handleIDRemoveCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
+	err := bot.RemovePlayer(m.Author.ID)
+	if err != nil {
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Error removing player ID: %v", err))
+		return
+	}
 
-	SendMessage(s, m.ChannelID, "Your player ID has been removed.")
+	bot.SendMessage(s, m.ChannelID, "Your player ID association has been removed.")
 }
 
-func handleIDListCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
-	playerIDMutex.RLock()
-	defer playerIDMutex.RUnlock()
+func handleIDListCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
+	players, err := bot.ListPlayers()
+	if err != nil {
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Error listing players: %v", err))
+		return
+	}
 
-	if len(playerIDs) == 0 {
-		SendMessage(s, m.ChannelID, "No player IDs have been registered.")
+	if len(players) == 0 {
+		bot.SendMessage(s, m.ChannelID, "No player IDs have been registered.")
 		return
 	}
 
 	var response strings.Builder
 	response.WriteString("Player ID List:\n")
-	for discordID, playerID := range playerIDs {
-		user, err := s.User(discordID)
+	for _, player := range players {
+		user, err := s.User(player.DiscordID)
 		username := "Unknown User"
 		if err == nil {
 			username = user.Username
 		}
-		response.WriteString(fmt.Sprintf("%s: %s\n", username, playerID))
+		response.WriteString(fmt.Sprintf("%s: %s\n", username, player.PlayerID))
 	}
 
-	SendMessage(s, m.ChannelID, response.String())
+	bot.SendMessage(s, m.ChannelID, response.String())
 }
-
-// ---------
