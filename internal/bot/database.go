@@ -1,5 +1,4 @@
-// database.go
-
+// File: internal/bot/database.go
 package bot
 
 import (
@@ -17,19 +16,27 @@ import (
 var db *gorm.DB
 var dbLogger *logrus.Logger
 
-// Player represents a player in the database
-type Player struct {
-	gorm.Model
-	DiscordID     string `gorm:"uniqueIndex;not null"`
-	PlayerID      string `gorm:"uniqueIndex;not null"`
-	GiftsRedeemed string
-}
-
 // Term represents a term in the database
 type Term struct {
 	gorm.Model
 	Term        string `gorm:"uniqueIndex;not null"`
 	Description string `gorm:"not null"`
+}
+
+// Add these structs at the end of the file
+type Player struct {
+	DiscordID string `gorm:"primaryKey"`
+	PlayerID  string
+}
+
+// GiftCodeRedemption represents a gift code redemption in the database
+type GiftCodeRedemption struct {
+	ID         uint `gorm:"primaryKey"`
+	DiscordID  string
+	PlayerID   string
+	GiftCode   string
+	Status     string
+	RedeemedAt time.Time
 }
 
 // CustomGormLogger adapts logrus to implement gorm's logger interface
@@ -72,15 +79,17 @@ func InitDB(config *Config, logger *logrus.Logger) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect database: %w", err)
 	}
-
 	if err := RunMigrations(db); err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
-
 	return db, nil
 }
 
-// TODO: terms is very weakly implemented.
+//func RunMigrations(db *gorm.DB) error {
+//	return db.AutoMigrate(&Term{}, &Player{}, &GiftCodeRedemption{})
+//}
+
+// Term-related functions
 
 func AddTerm(term, description string) error {
 	return db.Create(&Term{Term: term, Description: description}).Error
@@ -124,6 +133,8 @@ func GetTerm(term string) (*Term, error) {
 	return &t, nil
 }
 
+// Player-related functions
+
 func AddPlayer(discordID, playerID string) error {
 	return db.Create(&Player{DiscordID: discordID, PlayerID: playerID}).Error
 }
@@ -140,16 +151,25 @@ func EditPlayerID(discordID, newPlayerID string) error {
 }
 
 func RemovePlayerID(discordID string) error {
-
 	result := db.Model(&Player{}).Where("discord_id = ?", discordID).Update("player_id", nil)
 	if result.Error != nil {
 		return result.Error
 	}
-
 	if result.RowsAffected == 0 {
 		return errors.New("no player found with the given Discord ID")
 	}
+	return nil
+}
 
+// Add this function
+func RemovePlayer(discordID string) error {
+	result := db.Where("discord_id = ?", discordID).Delete(&Player{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("no player found with the given Discord ID")
+	}
 	return nil
 }
 
@@ -159,4 +179,58 @@ func ListPlayers() ([]Player, error) {
 		return nil, err
 	}
 	return players, nil
+}
+
+func GetPlayerID(discordID string) (string, error) {
+	var player Player
+	result := db.Where("discord_id = ?", discordID).First(&player)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return "", fmt.Errorf("no player found with Discord ID: %s", discordID)
+		}
+		return "", result.Error
+	}
+	return player.PlayerID, nil
+}
+
+func GetAllPlayerIDs() (map[string]string, error) {
+	var players []Player
+	result := db.Find(&players)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	playerIDs := make(map[string]string)
+	for _, player := range players {
+		playerIDs[player.DiscordID] = player.PlayerID
+	}
+	return playerIDs, nil
+}
+
+// GiftCode-related functions
+
+func RecordGiftCodeRedemption(discordID, playerID, giftCode, status string) error {
+	redemption := GiftCodeRedemption{
+		DiscordID:  discordID,
+		PlayerID:   playerID,
+		GiftCode:   giftCode,
+		Status:     status,
+		RedeemedAt: time.Now(),
+	}
+	return db.Create(&redemption).Error
+}
+
+// TODO: Implement these functions if needed
+func GetAllGiftCodeRedemptionsPaginated(page, itemsPerPage int) ([]GiftCodeRedemption, error) {
+	var redemptions []GiftCodeRedemption
+	offset := (page - 1) * itemsPerPage
+	result := db.Order("redeemed_at desc").Offset(offset).Limit(itemsPerPage).Find(&redemptions)
+	return redemptions, result.Error
+}
+
+func GetUserGiftCodeRedemptionsPaginated(discordID string, page, itemsPerPage int) ([]GiftCodeRedemption, error) {
+	var redemptions []GiftCodeRedemption
+	offset := (page - 1) * itemsPerPage
+	result := db.Where("discord_id = ?", discordID).Order("redeemed_at desc").Offset(offset).Limit(itemsPerPage).Find(&redemptions)
+	return redemptions, result.Error
 }

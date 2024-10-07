@@ -74,8 +74,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	discordLogger.Debugf("Received message: %s from user: %s", m.Content, m.Author.Username)
 
-	config := GetConfig()
-	err := LoadCommands(config.Paths.CommandsConfig, discordLogger, HandlerRegistry)
+	bot := GetBot()
+	config := bot.Config
+	err := LoadCommands(config.Paths.CommandsConfig, discordLogger, bot.HandlerRegistry)
 	if err != nil {
 		discordLogger.Errorf("Failed to load command config: %v", err)
 		return
@@ -85,11 +86,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 // SendMessage is a helper function to send a message to a channel
-func SendMessage(s *discordgo.Session, channelID string, message string) {
+func SendMessage(s *discordgo.Session, channelID string, message string) error {
 	_, err := s.ChannelMessageSend(channelID, message)
 	if err != nil {
 		discordLogger.Errorf("Error sending message: %v", err)
 	}
+	return err
 }
 
 // Helper function to check if a user has a specific role
@@ -116,7 +118,7 @@ func IsAdmin(s *discordgo.Session, guildID, userID string) bool {
 	}
 
 	for _, roleID := range member.Roles {
-		if roleID == GetConfig().Discord.RoleID {
+		if roleID == GetBot().Config.Discord.RoleID {
 			return true
 		}
 	}

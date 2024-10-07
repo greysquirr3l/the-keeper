@@ -74,30 +74,34 @@ func (b *Bot) RedeemGiftCode(playerID, giftCode string) (bool, string, error) {
 func (b *Bot) ValidateGiftCode(giftCode, playerID string) (bool, string) {
 	data := map[string]string{
 		"fid":  playerID,
+		"cdk":  giftCode,
 		"time": fmt.Sprintf("%d", time.Now().UnixNano()/int64(time.Millisecond)),
 	}
 
 	signedData := b.appendSign(data)
 
-	resp, err := b.makeAPIRequest("/player", signedData)
+	resp, err := b.makeAPIRequest("/gift_code", signedData)
 	if err != nil {
-		b.logger.WithError(err).Error("Failed to validate player")
-		return false, fmt.Sprintf("Failed to validate player: %v", err)
+		return false, fmt.Sprintf("API request failed: %v", err)
 	}
 
 	errCode, ok := resp["err_code"].(float64)
 	if !ok {
-		b.logger.Error("Invalid error code format")
 		return false, "Invalid error code format"
 	}
 
-	if int(errCode) != 20000 {
-		b.logger.Error("Invalid player ID")
-		return false, "Invalid player ID"
+	switch int(errCode) {
+	case 20000:
+		return true, "Gift code is valid"
+	case 40014:
+		return false, "Gift Code not found"
+	case 40007:
+		return false, "Expired, unable to claim"
+	case 40008:
+		return false, "Gift code already claimed"
+	default:
+		return false, fmt.Sprintf("Unknown error: %v", resp["msg"])
 	}
-
-	success, message, _ := b.RedeemGiftCode(playerID, giftCode)
-	return success, message
 }
 
 func (b *Bot) validateGiftCodeLength(code string) bool {

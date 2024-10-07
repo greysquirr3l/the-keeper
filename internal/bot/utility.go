@@ -15,6 +15,8 @@ var (
 	cooldownCache *cache.Cache
 	cacheMutex    sync.Mutex
 	utilLogger    *logrus.Logger
+	logger        *logrus.Logger
+	loggerOnce    sync.Once
 )
 
 func init() {
@@ -23,6 +25,15 @@ func init() {
 
 func SetUtilLogger(logger *logrus.Logger) {
 	utilLogger = logger
+}
+
+// // TODO: is GetLogger correct?
+func GetLogger() *logrus.Entry {
+	loggerOnce.Do(func() {
+		logger = logrus.New()
+		logger.SetLevel(logrus.DebugLevel)
+	})
+	return logger.WithField("service", "the-keeper")
 }
 
 func ParseArguments(input string) []string {

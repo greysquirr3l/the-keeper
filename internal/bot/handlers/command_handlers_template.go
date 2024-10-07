@@ -1,22 +1,34 @@
-// File: internal/bot/command_handlers_template.go
+// File: internal/bot/handlers/command_handlers_template.go
+package handlers
 
-package bot
+//import (
+//	"the-keeper/internal/bot"
 
-import (
-	"github.com/bwmarrin/discordgo"
-)
+//	"github.com/bwmarrin/discordgo"
+//)
 
+// func init() {
 func init() {
-	RegisterHandler("handleCommandName", handleCommandName)
+	//	bot.GetBot().RegisterHandler("handleTermCommand", handleTermCommand)
+	//	bot.GetBot().RegisterHandler("handleTermAddCommand", handleTermAddCommand)
+	//	bot.GetBot().RegisterHandler("handleTermEditCommand", handleTermEditCommand)
+	//	bot.GetBot().RegisterHandler("handleTermRemoveCommand", handleTermRemoveCommand)
+	//	bot.GetBot().RegisterHandler("handleTermListCommand", handleTermListCommand)
+	//}
+	//bot.GetBot().RegisterHandler("handleCommandName", handleCommandName)
 	// Register any subcommand handlers here
-	// RegisterHandler("handleCommandNameSubcommand", handleCommandNameSubcommand)
-}
+	// bot.RegisterHandler("handleCommandNameSubcommand", handleCommandNameSubcommand)
+	//}
 
-func handleCommandName(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
+	//func handleCommandName(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	// Implement main command logic here
-}
+	//	bot.SendMessage(s, m.ChannelID, "Command not implemented yet.")
+	//}
 
-// Implement subcommand handlers if any
-// func handleCommandNameSubcommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *Command) {
-//     // Implement subcommand logic here
-// }
+	// Implement subcommand handlers if any
+	//
+	//	func handleCommandNameSubcommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
+	//	    // Implement subcommand logic here
+	//	    bot.SendMessage(s, m.ChannelID, "Subcommand not implemented yet.")
+	return
+}

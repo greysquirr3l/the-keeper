@@ -1,48 +1,43 @@
+// File: internal/bot/auth.go
+
 package bot
 
 import (
 	"fmt"
 	"net/url"
-	"os"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/sirupsen/logrus"
 )
 
-// getOAuth2URL generates the Discord OAuth2 authorization URL
-func getOAuth2URL() string {
-	clientID := os.Getenv("DISCORD_CLIENT_ID")
-	redirectURI := "https://balanced-clarity-production.up.railway.app/oauth2/callback"
-	scopes := "identify guilds bot"
+// IsAuthorized checks if a user has the required role to use a command
+func IsAuthorized(s *discordgo.Session, guildID, userID string) bool {
+	member, err := s.GuildMember(guildID, userID)
+	if err != nil {
+		GetBot().GetLogger().WithFields(logrus.Fields{
+			"guildID": guildID,
+			"userID":  userID,
+		}).WithError(err).Error("Error fetching guild member")
+		return false
+	}
 
-	// Return the OAuth2 URL formatted with the client ID, redirect URI, and scopes
-	return fmt.Sprintf(
-		"https://discord.com/oauth2/authorize?client_id=%s&redirect_uri=%s&response_type=code&scope=%s",
-		clientID, redirectURI, url.QueryEscape(scopes),
-	)
+	config := GetConfig()
+	for _, roleID := range member.Roles {
+		if roleID == config.Discord.RoleID {
+			return true
+		}
+	}
+	return false
 }
 
-// Initialize the bot session and log with Logrus
-// func InitDiscordSession(token string) (*discordgo.Session, error) {
-//	session, err := discordgo.New("Bot " + token)
-//	if err != nil {
-//		logrus.WithError(err).Error("Failed to create Discord session")
-//		return nil, err
-//	}
+// GetOAuth2URL generates the Discord OAuth2 authorization URL
+func GetOAuth2URL() string {
+	clientID := GetConfig().Discord.ClientID
+	redirectURI := GetConfig().Discord.RedirectURL
+	scopes := "identify guilds bot"
 
-//	// Set up intents
-//	session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
-
-//	return session, nil
-//}
-// Usage
-//package main
-
-//import (
-//	"fmt"
-//	"the-keeper/internal/bot"
-//)
-
-//func main() {
-//	// Example of printing the OAuth2 URL
-//	fmt.Println("Discord OAuth2 Authorization URL:", bot.getOAuth2URL())
-//}
-
-// Other Discord bot logic (e.g., InitDiscordSession, StartDiscordBot)
+	return fmt.Sprintf(
+		"https://discord.com/oauth2/authorize?client_id=%s&redirect_uri=%s&response_type=code&scope=%s",
+		clientID, url.QueryEscape(redirectURI), url.QueryEscape(scopes),
+	)
+}

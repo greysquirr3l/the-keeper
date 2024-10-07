@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"the-keeper/internal/bot"
+	_ "the-keeper/internal/bot/handlers" // Import handlers for deferred registration
 
 	"github.com/sirupsen/logrus"
 )
@@ -88,14 +89,22 @@ func main() {
 		logger.Fatalf("commands.yaml not found at %s", commandsYamlPath)
 	}
 
-	var discordBot *bot.Bot
+	// Initialize the bot instance
+	discordBot, err := bot.NewBot(config, logger)
+	if err != nil {
+		logger.Fatalf("Error creating bot: %v", err)
+	}
+
+	// Process all pending handler registrations after bot creation
+	discordBot.ProcessPendingRegistrations()
+
+	// Load commands after handlers have been registered
+	if err := bot.LoadCommands(commandsYamlPath, logger, discordBot.GetHandlerRegistry()); err != nil {
+		logger.Fatalf("Error loading commands: %v", err)
+	}
+
 	if config.Discord.Enabled {
 		logger.Debug("Attempting to initialize Discord bot...")
-
-		discordBot, err = bot.NewBot(config, logger)
-		if err != nil {
-			logger.Fatalf("Error creating bot: %v", err)
-		}
 
 		if err := performStartupChecks(discordBot); err != nil {
 			logger.Fatalf("Startup checks failed: %v", err)

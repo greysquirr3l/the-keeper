@@ -34,3 +34,6 @@ copy_code.sh
 tree.txt
 the-keeper
 keeper.db
+.env
+.env_local
+run_local.sh

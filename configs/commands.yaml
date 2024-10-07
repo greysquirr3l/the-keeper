@@ -102,5 +102,5 @@ commands:
     description: "Show help information"
     usage: "!help [command]"
     cooldown: "3s"
-    handler: "handleHelpCommand"
+    handler: handleHelpCommand
     hidden: false

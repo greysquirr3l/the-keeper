@@ -1,18 +1,16 @@
 // File: internal/bot/handlers/help_handlers.go
-
 package handlers
 
 import (
 	"fmt"
 	"strings"
-
 	"the-keeper/internal/bot"
 
 	"github.com/bwmarrin/discordgo"
 )
 
 func init() {
-	bot.RegisterHandler("handleHelpCommand", handleHelpCommand)
+	bot.RegisterHandlerLater("handleHelpCommand", handleHelpCommand)
 }
 
 func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
@@ -26,21 +24,24 @@ func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []
 func sendGeneralHelp(s *discordgo.Session, channelID string) {
 	var helpMessage strings.Builder
 	helpMessage.WriteString("Available commands:\n")
-
 	for _, cmd := range bot.CommandRegistry {
 		if !cmd.Hidden {
 			helpMessage.WriteString(fmt.Sprintf("!%s: %s\n", cmd.Name, cmd.Description))
 		}
 	}
-
 	helpMessage.WriteString("\nUse !help <command> for more information on a specific command.")
-	bot.SendMessage(s, channelID, helpMessage.String())
+
+	if err := bot.SendMessage(s, channelID, helpMessage.String()); err != nil {
+		bot.GetBot().Logger.WithError(err).Error("Failed to send general help message")
+	}
 }
 
 func sendCommandHelp(s *discordgo.Session, channelID string, commandName string) {
 	cmd, exists := bot.CommandRegistry[commandName]
 	if !exists || cmd.Hidden {
-		bot.SendMessage(s, channelID, "Unknown command.")
+		if err := bot.SendMessage(s, channelID, "Unknown command."); err != nil {
+			bot.GetBot().Logger.WithError(err).Error("Failed to send unknown command message")
+		}
 		return
 	}
 
@@ -51,7 +52,6 @@ func sendCommandHelp(s *discordgo.Session, channelID string, commandName string)
 	if cmd.Cooldown != "" {
 		helpMessage.WriteString(fmt.Sprintf("Cooldown: %s\n", cmd.Cooldown))
 	}
-
 	if len(cmd.Subcommands) > 0 {
 		helpMessage.WriteString("Subcommands:\n")
 		for _, subCmd := range cmd.Subcommands {
@@ -61,5 +61,7 @@ func sendCommandHelp(s *discordgo.Session, channelID string, commandName string)
 		}
 	}
 
-	bot.SendMessage(s, channelID, helpMessage.String())
+	if err := bot.SendMessage(s, channelID, helpMessage.String()); err != nil {
+		bot.GetBot().Logger.WithError(err).Error("Failed to send command help message")
+	}
 }
