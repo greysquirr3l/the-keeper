@@ -154,6 +154,7 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	HandleCommand(s, m, b.Config)
 }
 
+// TODO: I don't think we're using this anymore.
 func (b *Bot) IsAdmin(s *discordgo.Session, guildID, userID string) bool {
 	member, err := s.GuildMember(guildID, userID)
 	if err != nil {

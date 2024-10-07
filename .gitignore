@@ -37,3 +37,6 @@ keeper.db
 .env
 .env_local
 run_local.sh
+convert_players.sh
+players.txt
+railway.yaml

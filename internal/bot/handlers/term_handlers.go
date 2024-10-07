@@ -49,7 +49,8 @@ func sendTermHelp(s *discordgo.Session, channelID string, cmd *bot.Command) {
 }
 
 func handleTermAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
-	if !bot.IsAuthorized(s, m.GuildID, m.Author.ID) {
+	botInstance := bot.GetBot()
+	if !botInstance.IsAuthorized(s, m.GuildID, m.Author.ID) {
 		bot.SendMessage(s, m.ChannelID, "You don't have permission to use this command.")
 		return
 	}
@@ -68,8 +69,10 @@ func handleTermAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args
 	bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Term '%s' has been added.", term))
 }
 
+// func handleTermEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 func handleTermEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
-	if !bot.IsAuthorized(s, m.GuildID, m.Author.ID) {
+	botInstance := bot.GetBot()
+	if !botInstance.IsAuthorized(s, m.GuildID, m.Author.ID) {
 		bot.SendMessage(s, m.ChannelID, "You don't have permission to use this command.")
 		return
 	}
@@ -88,8 +91,10 @@ func handleTermEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 	bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Term '%s' has been updated.", term))
 }
 
+// func handleTermRemoveCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 func handleTermRemoveCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
-	if !bot.IsAuthorized(s, m.GuildID, m.Author.ID) {
+	botInstance := bot.GetBot()
+	if !botInstance.IsAuthorized(s, m.GuildID, m.Author.ID) {
 		bot.SendMessage(s, m.ChannelID, "You don't have permission to use this command.")
 		return
 	}

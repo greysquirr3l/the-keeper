@@ -82,20 +82,26 @@ func LoadConfig() (*Config, error) {
 	// Override with environment variables if present
 	if discordToken := os.Getenv("DISCORD_BOT_TOKEN"); discordToken != "" {
 		config.Discord.Token = discordToken
+		fmt.Println("Discord Bot Token set from environment")
 	}
 	if discordClientID := os.Getenv("DISCORD_CLIENT_ID"); discordClientID != "" {
 		config.Discord.ClientID = discordClientID
+		fmt.Println("Discord Client ID set from environment")
 	}
 	if discordClientSecret := os.Getenv("DISCORD_CLIENT_SECRET"); discordClientSecret != "" {
 		config.Discord.ClientSecret = discordClientSecret
+		fmt.Println("Discord Client Secret set from environment")
 	}
 	if discordRoleID := os.Getenv("DISCORD_ROLE_ID"); discordRoleID != "" {
 		config.Discord.RoleID = discordRoleID
+		fmt.Printf("Discord Role ID set from environment: %s\n", discordRoleID)
+	} else {
+		fmt.Println("DISCORD_ROLE_ID not set in environment")
 	}
 	if redirectURL := os.Getenv("RAILWAY_PUBLIC_DOMAIN"); redirectURL != "" {
 		config.Discord.RedirectURL = redirectURL + "/oauth2/callback"
+		fmt.Printf("Redirect URL set from environment: %s\n", config.Discord.RedirectURL)
 	}
-
 	// Set database path
 	if dbPath := os.Getenv("RAILWAY_VOLUME_MOUNT_PATH"); dbPath != "" {
 		config.Database.Path = filepath.Join(dbPath, config.Database.Name)
@@ -123,6 +129,8 @@ func LoadConfig() (*Config, error) {
 		"LogLevel":       config.Logging.LogLevel,
 		"GiftCodeAPI":    config.GiftCode.APIEndpoint,
 	}).Info("Loaded configuration")
+
+	fmt.Printf("Final Discord Role ID: %s\n", config.Discord.RoleID)
 
 	return config, nil
 }

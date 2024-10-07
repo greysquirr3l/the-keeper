@@ -66,6 +66,11 @@ func main() {
 		logrus.Fatalf("Error loading config: %v", err)
 	}
 
+	// Add this line
+	fmt.Printf("Main: Discord Role ID from config: %s\n", config.Discord.RoleID)
+
+	logrus.WithField("config", config).Info("Loaded configuration")
+
 	logger := bot.InitializeLogger(config)
 
 	if err := checkConfiguration(config, logger); err != nil {

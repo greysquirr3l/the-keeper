@@ -10,23 +10,33 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// IsAuthorized checks if a user has the required role to use a command
-func IsAuthorized(s *discordgo.Session, guildID, userID string) bool {
+// IsAuthorized checks if a user has the required role to use admin commands
+func (b *Bot) IsAuthorized(s *discordgo.Session, guildID, userID string) bool {
+	b.logger.WithFields(logrus.Fields{
+		"user_id":        userID,
+		"guild_id":       guildID,
+		"config_role_id": b.Config.Discord.RoleID,
+	}).Info("Checking authorization")
+
 	member, err := s.GuildMember(guildID, userID)
 	if err != nil {
-		GetBot().GetLogger().WithFields(logrus.Fields{
-			"guildID": guildID,
-			"userID":  userID,
-		}).WithError(err).Error("Error fetching guild member")
+		b.logger.WithError(err).Error("Error fetching guild member")
 		return false
 	}
 
-	config := GetConfig()
+	b.logger.WithFields(logrus.Fields{
+		"user_roles":    member.Roles,
+		"required_role": b.Config.Discord.RoleID,
+	}).Info("Comparing user roles")
+
 	for _, roleID := range member.Roles {
-		if roleID == config.Discord.RoleID {
+		if roleID == b.Config.Discord.RoleID {
+			b.logger.Info("User is authorized")
 			return true
 		}
 	}
+
+	b.logger.Info("User is not authorized")
 	return false
 }
 

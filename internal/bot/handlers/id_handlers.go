@@ -8,6 +8,7 @@ import (
 	"the-keeper/internal/bot"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -61,22 +62,54 @@ func sendIDHelp(s *discordgo.Session, channelID string, cmd *bot.Command) {
 }
 
 func handleIDAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
-	if len(args) < 1 {
-		bot.SendMessage(s, m.ChannelID, "Usage: !id add <playerID>")
+	botInstance := bot.GetBot()
+	isAuthorized := botInstance.IsAuthorized(s, m.GuildID, m.Author.ID)
+
+	// Add this logging
+	botInstance.GetLogger().WithFields(logrus.Fields{
+		"user_id":       m.Author.ID,
+		"guild_id":      m.GuildID,
+		"is_authorized": isAuthorized,
+		"args_length":   len(args),
+		"args":          args,
+	}).Info("ID Add command invoked")
+
+	var playerID, discordID string
+
+	if isAuthorized && len(args) == 2 {
+		// Authorized user adding for another player
+		discordID = args[0]
+		playerID = args[1]
+	} else if len(args) == 1 {
+		// Regular user adding for themselves
+		discordID = m.Author.ID
+		playerID = args[0]
+	} else {
+		usage := "Usage: !id add <playerID>"
+		if isAuthorized {
+			usage = "Usage: !id add <discordID> <playerID>"
+		}
+		bot.SendMessage(s, m.ChannelID, usage)
 		return
 	}
-	playerID := args[0]
+
 	if !playerIDRegex.MatchString(playerID) {
 		bot.SendMessage(s, m.ChannelID, "Invalid playerID. It should be a number between 3 and 12 digits.")
 		return
 	}
-	err := bot.AddPlayer(m.Author.ID, playerID)
+
+	err := bot.AddPlayer(discordID, playerID)
 	if err != nil {
-		bot.GetBot().GetLogger().WithError(err).Error("Error adding player ID")
+		botInstance.GetLogger().WithError(err).Error("Error adding player ID")
 		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Error adding player ID: %v", err))
 		return
 	}
-	bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s has been added for user %s.", playerID, m.Author.Username))
+
+	if discordID == m.Author.ID {
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s has been added for you.", playerID))
+	} else {
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s has been added for Discord ID %s.", playerID, discordID))
+	}
 }
 
 func handleIDEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
