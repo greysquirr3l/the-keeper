@@ -13,9 +13,9 @@ import (
 )
 
 type ScrapeSite struct {
-	Name     string
-	URL      string
-	Selector string
+	Name     string `mapstructure:"name"`
+	URL      string `mapstructure:"url"`
+	Selector string `mapstructure:"selector"`
 }
 
 type ScrapeResult struct {
