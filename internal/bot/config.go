@@ -44,6 +44,9 @@ type Config struct {
 		APIEndpoint string        `mapstructure:"api_endpoint"`
 		APITimeout  time.Duration `mapstructure:"api_timeout"`
 	} `mapstructure:"gift_code"`
+	Scrape struct {
+		Sites []ScrapeSite `mapstructure:"sites"`
+	} `mapstructure:"scrape"`
 }
 
 var config *Config

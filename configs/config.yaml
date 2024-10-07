@@ -27,3 +27,12 @@ gift_code:
   max_length: 12
   api_endpoint: "https://wos-giftcode-api.centurygame.com/api"
   api_timeout: 30
+
+scrape:
+  sites:
+    - name: "VG247"
+      url: "https://www.vg247.com/whiteout-survival-codes"
+      selector: "ul li strong"
+    - name: "Lootbar"
+      url: "https://lootbar.gg/blog/en/whiteout-survival-newest-codes.html"
+      selector: ".code-block"

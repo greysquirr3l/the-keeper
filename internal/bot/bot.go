@@ -29,12 +29,6 @@ type Bot struct {
 	Logger           *logrus.Logger
 }
 
-type GiftCode struct {
-	Code        string
-	Description string
-	Source      string
-}
-
 var instance *Bot
 
 func GetBot() *Bot {

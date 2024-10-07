@@ -12,56 +12,48 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-func (b *Bot) StartPeriodicScraping() {
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour) // Adjust the interval as needed
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-				if err := b.ScrapeGiftCodes(ctx); err != nil {
-					b.logger.WithError(err).Error("Error during periodic scraping")
-				}
-				cancel()
-			case <-b.ctx.Done():
-				b.logger.Info("Stopping periodic scraping")
-				return
-			}
-		}
-	}()
+type ScrapeSite struct {
+	Name     string
+	URL      string
+	Selector string
 }
 
-func (b *Bot) ScrapeGiftCodes(ctx context.Context) error {
-	b.GetLogger().Info("Starting gift code scraping")
+type ScrapeResult struct {
+	SiteName string
+	Codes    []GiftCode
+	Error    error
+}
 
-	codesVG247, err := b.scrapeVG247Codes(ctx)
-	if err != nil {
-		b.GetLogger().WithError(err).Error("Error scraping VG247 gift codes")
+type GiftCode struct {
+	Code        string
+	Description string
+	Source      string
+}
+
+func (b *Bot) ScrapeGiftCodes(ctx context.Context) ([]ScrapeResult, error) {
+	var results []ScrapeResult
+
+	for _, site := range b.Config.Scrape.Sites {
+		codes, err := b.scrapeSite(ctx, site)
+		results = append(results, ScrapeResult{
+			SiteName: site.Name,
+			Codes:    codes,
+			Error:    err,
+		})
 	}
 
-	codesLootbar, err := b.scrapeLootbarCodes(ctx)
-	if err != nil {
-		b.GetLogger().WithError(err).Error("Error scraping Lootbar gift codes")
-	}
-
-	allCodes := append(codesVG247, codesLootbar...)
-	newCodes := b.findNewCodes(allCodes)
+	newCodes := b.findNewCodes(results)
 	if len(newCodes) > 0 {
 		if err := b.notifyNewCodes(ctx, newCodes); err != nil {
 			b.GetLogger().WithError(err).Error("Error notifying new codes")
 		}
 	}
 
-	b.lastCheckedCodes = allCodes
-	b.GetLogger().WithField("code_count", len(allCodes)).Info("Gift code scraping completed")
-	return nil
+	return results, nil
 }
 
-func (b *Bot) scrapeVG247Codes(ctx context.Context) ([]GiftCode, error) {
-	b.GetLogger().Info("Scraping VG247 for gift codes")
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://www.vg247.com/whiteout-survival-codes", nil)
+func (b *Bot) scrapeSite(ctx context.Context, site ScrapeSite) ([]GiftCode, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", site.URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
@@ -78,62 +70,36 @@ func (b *Bot) scrapeVG247Codes(ctx context.Context) ([]GiftCode, error) {
 	}
 
 	var codes []GiftCode
-	doc.Find("ul li strong").Each(func(i int, s *goquery.Selection) {
+	doc.Find(site.Selector).Each(func(i int, s *goquery.Selection) {
 		code := strings.TrimSpace(s.Text())
 		description := strings.TrimSpace(s.Parent().Text())
 		description = strings.TrimPrefix(description, code)
 		description = strings.TrimSpace(description)
-		codes = append(codes, GiftCode{Code: code, Description: description, Source: "VG247"})
+		codes = append(codes, GiftCode{Code: code, Description: description, Source: site.Name})
 	})
 
-	b.GetLogger().WithField("code_count", len(codes)).Info("VG247 gift codes scraped")
 	return codes, nil
 }
 
-func (b *Bot) scrapeLootbarCodes(ctx context.Context) ([]GiftCode, error) {
-	b.GetLogger().Info("Scraping Lootbar for gift codes")
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://lootbar.gg/blog/en/whiteout-survival-newest-codes.html", nil)
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error making request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing HTML: %w", err)
-	}
-
-	var codes []GiftCode
-	doc.Find(".code-block").Each(func(i int, s *goquery.Selection) {
-		code := strings.TrimSpace(s.Find(".code-block__code").Text())
-		description := strings.TrimSpace(s.Find(".code-block__description").Text())
-		codes = append(codes, GiftCode{Code: code, Description: description, Source: "Lootbar"})
-	})
-
-	b.GetLogger().WithField("code_count", len(codes)).Info("Lootbar gift codes scraped")
-	return codes, nil
-}
-
-func (b *Bot) findNewCodes(currentCodes []GiftCode) []GiftCode {
+func (b *Bot) findNewCodes(results []ScrapeResult) []GiftCode {
 	var newCodes []GiftCode
-	for _, current := range currentCodes {
-		isNew := true
-		for _, last := range b.lastCheckedCodes {
-			if current.Code == last.Code {
-				isNew = false
-				break
+	for _, result := range results {
+		for _, code := range result.Codes {
+			if !b.codeExists(code) {
+				newCodes = append(newCodes, code)
 			}
-		}
-		if isNew {
-			newCodes = append(newCodes, current)
 		}
 	}
 	return newCodes
+}
+
+func (b *Bot) codeExists(code GiftCode) bool {
+	for _, existingCode := range b.lastCheckedCodes {
+		if existingCode.Code == code.Code {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Bot) notifyNewCodes(ctx context.Context, newCodes []GiftCode) error {
@@ -149,4 +115,28 @@ func (b *Bot) notifyNewCodes(ctx context.Context, newCodes []GiftCode) error {
 	}
 	b.GetLogger().WithField("code_count", len(newCodes)).Info("New gift codes notification sent")
 	return nil
+}
+
+func (b *Bot) StartPeriodicScraping() {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour) // Adjust the interval as needed
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				results, err := b.ScrapeGiftCodes(ctx)
+				if err != nil {
+					b.GetLogger().WithError(err).Error("Error during periodic scraping")
+				} else {
+					b.GetLogger().WithField("results", results).Info("Periodic scraping completed")
+				}
+				cancel()
+			case <-b.ctx.Done():
+				b.GetLogger().Info("Stopping periodic scraping")
+				return
+			}
+		}
+	}()
 }
