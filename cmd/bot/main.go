@@ -66,7 +66,6 @@ func main() {
 		logrus.Fatalf("Error loading config: %v", err)
 	}
 
-	// Add this line
 	fmt.Printf("Main: Discord Role ID from config: %s\n", config.Discord.RoleID)
 
 	logrus.WithField("config", config).Info("Loaded configuration")
@@ -101,10 +100,10 @@ func main() {
 	}
 
 	// Process all pending handler registrations after bot creation
-	discordBot.ProcessPendingRegistrations()
+	// discordBot.ProcessPendingRegistrations()
 
 	// Load commands after handlers have been registered
-	if err := bot.LoadCommands(commandsYamlPath, logger, discordBot.GetHandlerRegistry()); err != nil {
+	if err := discordBot.LoadCommands(commandsYamlPath); err != nil {
 		logger.Fatalf("Error loading commands: %v", err)
 	}
 
@@ -124,6 +123,9 @@ func main() {
 	} else {
 		logger.Info("Discord bot is disabled in configuration")
 	}
+
+	// Start periodic scraping
+	discordBot.StartPeriodicScraping()
 
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/healthz", handleHealthCheck)

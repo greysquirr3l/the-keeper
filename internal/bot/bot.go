@@ -3,9 +3,10 @@
 package bot
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
-	"plugin"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
@@ -13,38 +14,35 @@ import (
 )
 
 type Bot struct {
-	Config          *Config
-	Session         *discordgo.Session
-	DB              *gorm.DB
-	shutdownChan    chan struct{}
-	logger          *logrus.Logger // is this needed?
-	Logger          *logrus.Logger
-	HandlerRegistry map[string]CommandHandler
+	Config           *Config
+	Session          *discordgo.Session
+	DB               *gorm.DB
+	logger           *logrus.Logger
+	HandlerRegistry  map[string]CommandHandler
+	ctx              context.Context
+	cancel           context.CancelFunc
+	lastCheckedCodes []GiftCode
+	scrapeMutex      sync.Mutex
+	Code             string
+	Description      string
+	Source           string
+	Logger           *logrus.Logger
+}
+
+type GiftCode struct {
+	Code        string
+	Description string
+	Source      string
 }
 
 var instance *Bot
-var pendingRegistrations []func(*Bot)
-
-// // TODO: chatgtp suggestion
-func RegisterHandlerLater(name string, handler CommandHandler) {
-	pendingRegistrations = append(pendingRegistrations, func(b *Bot) {
-		b.RegisterHandler(name, handler)
-	})
-}
-
-func (b *Bot) ProcessPendingRegistrations() {
-	for _, reg := range pendingRegistrations {
-		reg(b)
-	}
-}
-
-//
 
 func GetBot() *Bot {
 	return instance
 }
 
 func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 	db, err := InitDB(config, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
@@ -52,9 +50,10 @@ func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
 	bot := &Bot{
 		Config:          config,
 		DB:              db,
-		shutdownChan:    make(chan struct{}),
 		logger:          logger,
 		HandlerRegistry: make(map[string]CommandHandler),
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 	if config.Discord.Enabled {
 		session, err := discordgo.New("Bot " + config.Discord.Token)
@@ -63,6 +62,10 @@ func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
 		}
 		bot.Session = session
 	}
+
+	// Process pending registrations
+	bot.ProcessPendingRegistrations()
+
 	if err := bot.loadHandlers(); err != nil {
 		return nil, fmt.Errorf("failed to load handlers: %w", err)
 	}
@@ -85,46 +88,54 @@ func (b *Bot) Start() error {
 
 func (b *Bot) loadHandlers() error {
 	handlersDir := "./internal/bot/handlers"
-	files, err := filepath.Glob(filepath.Join(handlersDir, "*.so"))
+	files, err := filepath.Glob(filepath.Join(handlersDir, "*.go"))
 	if err != nil {
 		return fmt.Errorf("failed to read handlers directory: %w", err)
 	}
 	for _, file := range files {
-		p, err := plugin.Open(file)
-		if err != nil {
-			b.logger.Errorf("Failed to open handler %s: %v", file, err)
-			continue
-		}
-		registerSymbol, err := p.Lookup("Register")
-		if err != nil {
-			b.logger.Errorf("Failed to find Register function in handler %s: %v", file, err)
-			continue
-		}
-		registerFunc, ok := registerSymbol.(func(*Bot))
-		if !ok {
-			b.logger.Errorf("Invalid Register function signature in handler %s", file)
-			continue
-		}
-		registerFunc(b)
-		b.logger.Infof("Successfully loaded handler: %s", file)
+		b.logger.Infof("Loading handler file: %s", file)
 	}
+	// The actual loading of handlers now happens through the pending registrations
+	// processed in NewBot, so we don't need to do anything else here.
 	return nil
 }
 
-// func (b *Bot) RegisterHandler(name string, handler CommandHandler) {
-//	b.HandlerRegistry[name] = handler
-//	b.logger.Debugf("Registered handler: %s", name)
-// }
+var pendingHandlers = make(map[string]CommandHandler)
 
-// RegisterHandler registers a command handler with the bot
 func (b *Bot) RegisterHandler(name string, handler CommandHandler) {
-	if b.HandlerRegistry == nil {
-		b.HandlerRegistry = make(map[string]CommandHandler)
-	}
 	b.HandlerRegistry[name] = handler
+	b.logger.Debugf("Registered handler: %s", name)
+}
+
+func RegisterHandlerLater(name string, handler CommandHandler) {
+	if instance != nil {
+		// If the bot instance already exists, register the handler immediately
+		instance.RegisterHandler(name, handler)
+	} else {
+		// Otherwise, queue the handler for later registration
+		pendingHandlers[name] = handler
+		logrus.Infof("Handler %s queued for registration", name)
+	}
+}
+
+func (b *Bot) ProcessPendingRegistrations() {
+	for name, handler := range pendingHandlers {
+		b.RegisterHandler(name, handler)
+	}
+	// Clear the pending handlers
+	pendingHandlers = make(map[string]CommandHandler)
+}
+
+func (b *Bot) GetHandlerRegistry() map[string]CommandHandler {
+	return b.HandlerRegistry
+}
+
+func (b *Bot) LoadCommands(configPath string) error {
+	return LoadCommands(configPath, b.logger, b.HandlerRegistry)
 }
 
 func (b *Bot) Shutdown() error {
+	b.cancel() // Cancel the context to stop all goroutines
 	if b.Config.Discord.Enabled {
 		if err := b.Session.Close(); err != nil {
 			b.logger.WithError(err).Error("Error closing Discord session")
@@ -154,7 +165,6 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	HandleCommand(s, m, b.Config)
 }
 
-// TODO: I don't think we're using this anymore.
 func (b *Bot) IsAdmin(s *discordgo.Session, guildID, userID string) bool {
 	member, err := s.GuildMember(guildID, userID)
 	if err != nil {
@@ -167,18 +177,6 @@ func (b *Bot) IsAdmin(s *discordgo.Session, guildID, userID string) bool {
 		}
 	}
 	return false
-}
-
-func (b *Bot) GetPlayerID(discordID string) (string, error) {
-	return GetPlayerID(discordID)
-}
-
-func (b *Bot) RecordGiftCodeRedemption(discordID, playerID, giftCode, status string) error {
-	return RecordGiftCodeRedemption(discordID, playerID, giftCode, status)
-}
-
-func (b *Bot) GetAllPlayerIDs() (map[string]string, error) {
-	return GetAllPlayerIDs()
 }
 
 func (b *Bot) GetAllGiftCodeRedemptionsPaginated(page, itemsPerPage int) ([]GiftCodeRedemption, error) {
@@ -195,11 +193,25 @@ func (b *Bot) GetUserGiftCodeRedemptionsPaginated(discordID string, page, itemsP
 	return redemptions, result.Error
 }
 
+func (b *Bot) GetPlayerID(discordID string) (string, error) {
+	return GetPlayerID(discordID)
+}
+
+func (b *Bot) RecordGiftCodeRedemption(discordID, playerID, giftCode, status string) error {
+	return RecordGiftCodeRedemption(discordID, playerID, giftCode, status)
+}
+
+func (b *Bot) GetAllPlayerIDs() (map[string]string, error) {
+	return GetAllPlayerIDs()
+}
+
+func (b *Bot) SendMessage(s *discordgo.Session, channelID, content string) error {
+	_, err := s.ChannelMessageSend(channelID, content)
+	return err
+}
+
 func (b *Bot) GetLogger() *logrus.Logger {
 	return b.logger
 }
 
-// TODO: Added per chatgpt recommendation
-func (b *Bot) GetHandlerRegistry() map[string]CommandHandler {
-	return b.HandlerRegistry
-}
+type CommandHandler func(*discordgo.Session, *discordgo.MessageCreate, []string, *Command)

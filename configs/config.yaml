@@ -6,12 +6,13 @@ discord:
   redirect_url: ${RAILWAY_PUBLIC_DOMAIN}/oauth2/callback
   enabled: true
   command_prefix: "!"
+  notification_channel_id: ${DISCORD_NOTIFICATION_CHANNEL}
 
 server:
   port: "8080"
 
 logging:
-  log_level: "debug"
+  log_level: "warn"
 
 paths:
   commands_config: "configs/commands.yaml"

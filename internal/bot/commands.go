@@ -89,5 +89,3 @@ func HandleCommand(s *discordgo.Session, m *discordgo.MessageCreate, config *Con
 		SendMessage(s, m.ChannelID, fmt.Sprintf("Command '%s' is not implemented yet.", cmdName))
 	}
 }
-
-type CommandHandler func(*discordgo.Session, *discordgo.MessageCreate, []string, *Command)

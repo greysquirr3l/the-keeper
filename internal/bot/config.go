@@ -14,13 +14,14 @@ import (
 
 type Config struct {
 	Discord struct {
-		Token         string `mapstructure:"token"`
-		ClientID      string `mapstructure:"client_id"`
-		ClientSecret  string `mapstructure:"client_secret"`
-		RoleID        string `mapstructure:"RoleID"`
-		RedirectURL   string `mapstructure:"redirect_url"`
-		Enabled       bool   `mapstructure:"enabled"`
-		CommandPrefix string `mapstructure:"command_prefix"`
+		Token                 string `mapstructure:"token"`
+		ClientID              string `mapstructure:"client_id"`
+		ClientSecret          string `mapstructure:"client_secret"`
+		RoleID                string `mapstructure:"RoleID"`
+		RedirectURL           string `mapstructure:"redirect_url"`
+		Enabled               bool   `mapstructure:"enabled"`
+		CommandPrefix         string `mapstructure:"command_prefix"`
+		NotificationChannelID string `mapstructure:"notification_channel_id"`
 	} `mapstructure:"discord"`
 	Server struct {
 		Port string `mapstructure:"port"`
@@ -107,6 +108,9 @@ func LoadConfig() (*Config, error) {
 		config.Database.Path = filepath.Join(dbPath, config.Database.Name)
 	} else {
 		config.Database.Path = config.Database.Name
+	}
+	if notificationChannelID := os.Getenv("DISCORD_NOTIFICATION_CHANNEL_ID"); notificationChannelID != "" {
+		config.Discord.NotificationChannelID = notificationChannelID
 	}
 
 	// Set default values if not provided
