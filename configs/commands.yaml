@@ -95,7 +95,7 @@ commands:
     description: "Manually trigger gift code scraping"
     usage: "!scrape"
     cooldown: "60s"
-    handler: "placeholderHandler"
+    handler: "handleScrapeCommand"
     hidden: true
 
   help:
