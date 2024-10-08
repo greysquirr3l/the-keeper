@@ -36,32 +36,32 @@ commands:
     description: "Manage terms"
     usage: "!term <add|edit|remove|list> [arguments]"
     cooldown: "3s"
-    handler: "placeholderHandler"
+    handler: "handleTermCommand"
     hidden: false
     subcommands:
       add:
         description: "Add a new term"
         usage: "!term add <title> <description>"
         cooldown: "2s"
-        handler: "placeholderHandler"
+        handler: "handleTermAddCommand"
         hidden: false
       edit:
         description: "Edit an existing term"
         usage: "!term edit <title> <new description>"
         cooldown: "3s"
-        handler: "placeholderHandler"
+        handler: "handleTermEditCommand"
         hidden: false
       remove:
         description: "Remove a term"
         usage: "!term remove <title>"
         cooldown: "5s"
-        handler: "placeholderHandler"
+        handler: "handleTermRemoveCommand"
         hidden: false
       list:
         description: "List all terms"
         usage: "!term list"
         cooldown: "10s"
-        handler: "placeholderHandler"
+        handler: "handleTermListCommand"
         hidden: false
 
   giftcode:
