@@ -25,13 +25,13 @@ func handleTermCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []
 	}
 	subCmd, exists := cmd.Subcommands[args[0]]
 	if !exists {
-		bot.SendMessage(s, m.ChannelID, "Unknown subcommand. Use !help term to see available subcommands.")
+		bot.SendMessage(s, m.ChannelID, "Unknown subcommand. Use `!help term` to see available subcommands.")
 		return
 	}
 	if subCmd.HandlerFunc != nil {
 		subCmd.HandlerFunc(s, m, args[1:], subCmd)
 	} else {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("The subcommand '%s' is not implemented yet.", args[0]))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⦾ The subcommand '%s' is not implemented yet. ⦾", args[0]))
 	}
 }
 
@@ -51,7 +51,7 @@ func sendTermHelp(s *discordgo.Session, channelID string, cmd *bot.Command) {
 func handleTermAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	botInstance := bot.GetBot()
 	if !botInstance.IsAuthorized(s, m.GuildID, m.Author.ID) {
-		bot.SendMessage(s, m.ChannelID, "You don't have permission to use this command.")
+		bot.SendMessage(s, m.ChannelID, "𐄂 You don't have permission to use this command.")
 		return
 	}
 	if len(args) < 2 {
@@ -73,7 +73,7 @@ func handleTermAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args
 func handleTermEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	botInstance := bot.GetBot()
 	if !botInstance.IsAuthorized(s, m.GuildID, m.Author.ID) {
-		bot.SendMessage(s, m.ChannelID, "You don't have permission to use this command.")
+		bot.SendMessage(s, m.ChannelID, "𐄂 You don't have permission to use this command.")
 		return
 	}
 	if len(args) < 2 {
@@ -95,7 +95,7 @@ func handleTermEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 func handleTermRemoveCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	botInstance := bot.GetBot()
 	if !botInstance.IsAuthorized(s, m.GuildID, m.Author.ID) {
-		bot.SendMessage(s, m.ChannelID, "You don't have permission to use this command.")
+		bot.SendMessage(s, m.ChannelID, "𐄂 You don't have permission to use this command.")
 		return
 	}
 	if len(args) < 1 {

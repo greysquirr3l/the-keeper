@@ -26,14 +26,14 @@ func handleGiftCodeCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 
 	subCmd, exists := cmd.Subcommands[args[0]]
 	if !exists {
-		bot.SendMessage(s, m.ChannelID, "Unknown subcommand. Use !help giftcode to see available subcommands.")
+		bot.SendMessage(s, m.ChannelID, "⚠️ Unknown subcommand. Use !help giftcode to see available subcommands.")
 		return
 	}
 
 	if subCmd.HandlerFunc != nil {
 		subCmd.HandlerFunc(s, m, args[1:], subCmd)
 	} else {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("The subcommand '%s' is not implemented yet.", args[0]))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ The subcommand '%s' is not implemented yet.", args[0]))
 	}
 }
 
@@ -60,14 +60,14 @@ func handleGiftCodeRedeemCommand(s *discordgo.Session, m *discordgo.MessageCreat
 	botInstance := bot.GetBot()
 	playerID, err := botInstance.GetPlayerID(m.Author.ID)
 	if err != nil {
-		bot.SendMessage(s, m.ChannelID, "❌ You do not have a Player ID associated. Use `!id add <PlayerID>` to associate your account.")
+		bot.SendMessage(s, m.ChannelID, "⚠️ You do not have a Player ID associated. Use `!id add <PlayerID>` to associate your account.")
 		return
 	}
 
 	success, message, err := botInstance.RedeemGiftCode(playerID, giftCode)
 	if err != nil {
 		botInstance.GetLogger().WithError(err).Error("Error redeeming gift code")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("❌ Error redeeming gift code: %v", err))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("𐄂 Error redeeming gift code: %v", err))
 		return
 	}
 
@@ -94,7 +94,7 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 
 	botInstance := bot.GetBot()
 	if !botInstance.IsAdmin(s, m.GuildID, m.Author.ID) {
-		bot.SendMessage(s, m.ChannelID, "❌ You do not have permission to use this command.")
+		bot.SendMessage(s, m.ChannelID, "𐄂 You do not have permission to use this command.")
 		return
 	}
 
@@ -102,7 +102,7 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 	playerIDs, err := botInstance.GetAllPlayerIDs()
 	if err != nil {
 		botInstance.GetLogger().WithError(err).Error("Error retrieving Player IDs")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("❌ Error retrieving Player IDs: %v", err))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("𐄂 Error retrieving Player IDs: %v", err))
 		return
 	}
 
@@ -112,7 +112,7 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 		success, message, err := botInstance.RedeemGiftCode(playerID, giftCode)
 		if err != nil {
 			botInstance.GetLogger().WithError(err).WithField("player_id", playerID).WithField("gift_code", giftCode).Error("Error redeeming gift code")
-			bot.SendMessage(s, m.ChannelID, fmt.Sprintf("❌ Error for Player ID %s: %v", playerID, err))
+			bot.SendMessage(s, m.ChannelID, fmt.Sprintf("𐄂 Error for Player ID %s: %v", playerID, err))
 			continue
 		}
 
@@ -130,7 +130,7 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s: %s", playerID, message))
 	}
 
-	bot.SendMessage(s, m.ChannelID, "✅ Gift code deployment completed.")
+	bot.SendMessage(s, m.ChannelID, "✓ Gift code deployment completed.")
 }
 
 func handleGiftCodeValidateCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
@@ -143,15 +143,15 @@ func handleGiftCodeValidateCommand(s *discordgo.Session, m *discordgo.MessageCre
 	botInstance := bot.GetBot()
 	playerID, err := botInstance.GetPlayerID(m.Author.ID)
 	if err != nil {
-		bot.SendMessage(s, m.ChannelID, "❌ You do not have a Player ID associated. Use `!id add <PlayerID>` to associate your account.")
+		bot.SendMessage(s, m.ChannelID, "𐄂 You do not have a Player ID associated. Use `!id add <PlayerID>` to associate your account.")
 		return
 	}
 
 	isValid, message := botInstance.ValidateGiftCode(giftCode, playerID)
 	if isValid {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("✅ Gift code `%s` is valid.", giftCode))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("✓ Gift code `%s` is valid.", giftCode))
 	} else {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("❌ Invalid gift code: %s", message))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("𐄂 Invalid gift code: %s", message))
 	}
 }
 
@@ -179,12 +179,12 @@ func handleGiftCodeListCommand(s *discordgo.Session, m *discordgo.MessageCreate,
 
 	if err != nil {
 		bot.GetBot().GetLogger().WithError(err).Error("Error retrieving gift codes")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("❌ Error retrieving gift codes: %v", err))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("𐄂 Error retrieving gift codes: %v", err))
 		return
 	}
 
 	if len(redemptions) == 0 {
-		bot.SendMessage(s, m.ChannelID, "No gift codes found for this page.")
+		bot.SendMessage(s, m.ChannelID, "⚠️ No gift codes found for this page.")
 		return
 	}
 

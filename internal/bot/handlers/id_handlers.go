@@ -94,21 +94,21 @@ func handleIDAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args [
 	}
 
 	if !playerIDRegex.MatchString(playerID) {
-		bot.SendMessage(s, m.ChannelID, "Invalid playerID. It should be a number between 3 and 12 digits.")
+		bot.SendMessage(s, m.ChannelID, "𐄂 Invalid playerID. It should be a number between 3 and 12 digits.")
 		return
 	}
 
 	err := bot.AddPlayer(discordID, playerID)
 	if err != nil {
 		botInstance.GetLogger().WithError(err).Error("Error adding player ID")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Error adding player ID: %v", err))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Error adding player ID: %v", err))
 		return
 	}
 
 	if discordID == m.Author.ID {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s has been added for you.", playerID))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("✓ Player ID %s has been added for you.", playerID))
 	} else {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s has been added for Discord ID %s.", playerID, discordID))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("✓ Player ID %s has been added for Discord ID %s.", playerID, discordID))
 	}
 }
 
@@ -119,13 +119,13 @@ func handleIDEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args 
 	}
 	newPlayerID := args[0]
 	if !playerIDRegex.MatchString(newPlayerID) {
-		bot.SendMessage(s, m.ChannelID, "Invalid playerID. It should be a number between 3 and 12 digits.")
+		bot.SendMessage(s, m.ChannelID, "𐄂 Invalid playerID. It should be a number between 3 and 12 digits.")
 		return
 	}
 	err := bot.EditPlayerID(m.Author.ID, newPlayerID)
 	if err != nil {
 		bot.GetBot().GetLogger().WithError(err).Error("Error editing player ID")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Error editing player ID: %v", err))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Error editing player ID: %v", err))
 		return
 	}
 	bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Your player ID has been updated to %s.", newPlayerID))
@@ -135,21 +135,21 @@ func handleIDRemoveCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 	err := bot.RemovePlayer(m.Author.ID)
 	if err != nil {
 		bot.GetBot().GetLogger().WithError(err).Error("Error removing player ID")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Error removing player ID: %v", err))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Error removing player ID: %v", err))
 		return
 	}
-	bot.SendMessage(s, m.ChannelID, "Your player ID association has been removed.")
+	bot.SendMessage(s, m.ChannelID, "✓ Your player ID association has been removed.")
 }
 
 func handleIDListCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	players, err := bot.ListPlayers()
 	if err != nil {
 		bot.GetBot().GetLogger().WithError(err).Error("Error listing players")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Error listing players: %v", err))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Error listing players: %v", err))
 		return
 	}
 	if len(players) == 0 {
-		bot.SendMessage(s, m.ChannelID, "No player IDs have been registered.")
+		bot.SendMessage(s, m.ChannelID, "⚠️ No player IDs have been registered.")
 		return
 	}
 	var response strings.Builder
