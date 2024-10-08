@@ -112,8 +112,9 @@ func (b *Bot) ProcessPendingRegistrations() {
 		b.RegisterHandler(name, handler)
 		b.logger.Infof("Registered handler: %s", name)
 	}
+	b.logger.Infof("HandlerRegistry now contains %d handlers", len(b.HandlerRegistry))
+	// Clear the pending handlers
 	pendingHandlers = make(map[string]CommandHandler)
-	b.logger.Info("Finished processing pending handler registrations")
 }
 
 func (b *Bot) GetHandlerRegistry() map[string]CommandHandler {

@@ -1,4 +1,4 @@
-// File: internal/bot/handlers/scrape_handlers.go
+//  File: internal/bot/handlers/scrape_handlers.go
 
 package handlers
 
