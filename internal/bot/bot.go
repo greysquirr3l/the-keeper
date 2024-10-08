@@ -102,22 +102,18 @@ func (b *Bot) RegisterHandler(name string, handler CommandHandler) {
 }
 
 func RegisterHandlerLater(name string, handler CommandHandler) {
-	if instance != nil {
-		// If the bot instance already exists, register the handler immediately
-		instance.RegisterHandler(name, handler)
-	} else {
-		// Otherwise, queue the handler for later registration
-		pendingHandlers[name] = handler
-		logrus.Infof("Handler %s queued for registration", name)
-	}
+	pendingHandlers[name] = handler
+	logrus.Infof("Handler %s queued for registration", name)
 }
 
 func (b *Bot) ProcessPendingRegistrations() {
+	b.logger.Infof("Processing %d pending handler registrations", len(pendingHandlers))
 	for name, handler := range pendingHandlers {
 		b.RegisterHandler(name, handler)
+		b.logger.Infof("Registered handler: %s", name)
 	}
-	// Clear the pending handlers
 	pendingHandlers = make(map[string]CommandHandler)
+	b.logger.Info("Finished processing pending handler registrations")
 }
 
 func (b *Bot) GetHandlerRegistry() map[string]CommandHandler {

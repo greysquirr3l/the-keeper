@@ -100,9 +100,9 @@ func main() {
 	}
 
 	// Process all pending handler registrations after bot creation
-	// discordBot.ProcessPendingRegistrations()
+	discordBot.ProcessPendingRegistrations()
 
-	// Load commands after handlers have been registered
+	// Then load commands
 	if err := discordBot.LoadCommands(commandsYamlPath); err != nil {
 		logger.Fatalf("Error loading commands: %v", err)
 	}

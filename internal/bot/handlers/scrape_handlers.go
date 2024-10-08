@@ -1,3 +1,5 @@
+// File: internal/bot/handlers/scrape_handlers.go
+
 package handlers
 
 import (
@@ -9,6 +11,10 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 )
+
+func init() {
+	bot.RegisterHandlerLater("handleScrapeCommand", handleScrapeCommand)
+}
 
 func handleScrapeCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	botInstance := bot.GetBot()

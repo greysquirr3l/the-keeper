@@ -30,23 +30,22 @@ func LoadCommands(configPath string, logger *logrus.Logger, handlerRegistry map[
 	if err != nil {
 		return fmt.Errorf("error reading command config file: %w", err)
 	}
-
 	var config struct {
 		Prefix   string
 		Commands map[string]*Command
 	}
-
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		return fmt.Errorf("error parsing command config: %w", err)
 	}
-
 	CommandRegistry = config.Commands
+	logger.Infof("Loaded %d commands from config", len(CommandRegistry))
 
 	for name, cmd := range CommandRegistry {
 		cmd.Name = name
 		if handler, ok := handlerRegistry[cmd.Handler]; ok {
 			cmd.HandlerFunc = handler
+			logger.Infof("Handler '%s' associated with command '%s'", cmd.Handler, name)
 		} else {
 			logger.Warnf("Handler '%s' not found for command '%s'", cmd.Handler, name)
 		}
@@ -55,12 +54,14 @@ func LoadCommands(configPath string, logger *logrus.Logger, handlerRegistry map[
 			subCmd.Name = subName
 			if handler, ok := handlerRegistry[subCmd.Handler]; ok {
 				subCmd.HandlerFunc = handler
+				logger.Infof("Handler '%s' associated with subcommand '%s' of '%s'", subCmd.Handler, subName, name)
 			} else {
 				logger.Warnf("Handler '%s' not found for subcommand '%s' of '%s'", subCmd.Handler, subName, name)
 			}
 		}
 	}
 
+	logger.Info("Command loading completed")
 	return nil
 }
 
