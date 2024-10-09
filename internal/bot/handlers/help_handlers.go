@@ -17,7 +17,7 @@ func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []
 	if len(args) == 0 {
 		sendGeneralHelp(s, m.ChannelID)
 	} else {
-		sendCommandHelp(s, m.ChannelID, args[0])
+		sendCommandHelp(s, m.ChannelID, bot.NormalizeInput(args[0]))
 	}
 }
 

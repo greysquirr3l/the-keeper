@@ -1,6 +1,3 @@
-// Let's fully implement the `term` command and its subcommands: add, edit, remove, and list.
-// I'll provide the complete code for `term_handlers.go` that includes all subcommands, ensuring all functionality is covered.
-
 package handlers
 
 import (
@@ -26,7 +23,7 @@ func handleTermCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []
 		return
 	}
 
-	subcommand := strings.ToLower(args[0])
+	subcommand := bot.NormalizeInput(args[0])
 	switch subcommand {
 	case "add":
 		handleTermAddCommand(s, m, args[1:], cmd)
@@ -48,8 +45,8 @@ func handleTermAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args
 		return
 	}
 
-	term := args[0]
-	definition := strings.Join(args[1:], " ")
+	term := bot.NormalizeInput(args[0])
+	definition := bot.NormalizeInput(strings.Join(args[1:], " "))
 
 	err := bot.AddTerm(term, definition)
 	if err != nil {
@@ -67,7 +64,7 @@ func handleTermEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 		return
 	}
 
-	term := args[0]
+	term := bot.NormalizeInput(args[0])
 	newDefinition := strings.Join(args[1:], " ")
 
 	err := bot.EditTerm(term, newDefinition)
@@ -86,7 +83,7 @@ func handleTermRemoveCommand(s *discordgo.Session, m *discordgo.MessageCreate, a
 		return
 	}
 
-	term := args[0]
+	term := bot.NormalizeInput(args[0])
 
 	err := bot.RemoveTerm(term)
 	if err != nil {

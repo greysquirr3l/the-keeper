@@ -67,3 +67,8 @@ func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil || !os.IsNotExist(err)
 }
+
+// NormalizeInput trims spaces and converts input to lowercase for consistent command handling.
+func NormalizeInput(input string) string {
+	return strings.ToLower(strings.TrimSpace(input))
+}

@@ -40,7 +40,7 @@ func formatScrapeResults(results []bot.ScrapeResult) string {
 
 	totalCodes := 0
 	for _, result := range results {
-		sb.WriteString(fmt.Sprintf("» %s:\n", result.SiteName))
+		sb.WriteString(fmt.Sprintf("» %s »\n", result.SiteName))
 		if result.Error != nil {
 			sb.WriteString(fmt.Sprintf("   𐄂 Error: %s\n", result.Error))
 		} else {

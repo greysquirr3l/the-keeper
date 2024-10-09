@@ -24,7 +24,8 @@ func handleGiftCodeCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 		return
 	}
 
-	subCmd, exists := cmd.Subcommands[args[0]]
+	subCmdName := bot.NormalizeInput(args[0])
+	subCmd, exists := cmd.Subcommands[subCmdName]
 	if !exists {
 		bot.SendMessage(s, m.ChannelID, "⚠️ Unknown subcommand. Use !help giftcode to see available subcommands.")
 		return
@@ -33,7 +34,7 @@ func handleGiftCodeCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 	if subCmd.HandlerFunc != nil {
 		subCmd.HandlerFunc(s, m, args[1:], subCmd)
 	} else {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ The subcommand '%s' is not implemented yet.", args[0]))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ The subcommand '%s' is not implemented yet.", subCmdName))
 	}
 }
 
@@ -56,7 +57,7 @@ func handleGiftCodeRedeemCommand(s *discordgo.Session, m *discordgo.MessageCreat
 		return
 	}
 
-	giftCode := args[0]
+	giftCode := bot.NormalizeInput(args[0])
 	botInstance := bot.GetBot()
 	playerID, err := botInstance.GetPlayerID(m.Author.ID)
 	if err != nil {
@@ -98,7 +99,7 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 		return
 	}
 
-	giftCode := args[0]
+	giftCode := bot.NormalizeInput(args[0])
 	playerIDs, err := botInstance.GetAllPlayerIDs()
 	if err != nil {
 		botInstance.GetLogger().WithError(err).Error("Error retrieving Player IDs")
@@ -139,7 +140,7 @@ func handleGiftCodeValidateCommand(s *discordgo.Session, m *discordgo.MessageCre
 		return
 	}
 
-	giftCode := args[0]
+	giftCode := bot.NormalizeInput(args[0])
 	botInstance := bot.GetBot()
 	playerID, err := botInstance.GetPlayerID(m.Author.ID)
 	if err != nil {
