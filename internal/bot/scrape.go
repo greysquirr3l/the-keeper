@@ -12,24 +12,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-type ScrapeSite struct {
-	Name     string `mapstructure:"name"`
-	URL      string `mapstructure:"url"`
-	Selector string `mapstructure:"selector"`
-}
-
-type ScrapeResult struct {
-	SiteName string
-	Codes    []GiftCode
-	Error    error
-}
-
-type GiftCode struct {
-	Code        string
-	Description string
-	Source      string
-}
-
 func (b *Bot) ScrapeGiftCodes(ctx context.Context) ([]ScrapeResult, error) {
 	var results []ScrapeResult
 

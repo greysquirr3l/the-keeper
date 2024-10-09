@@ -12,17 +12,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type Command struct {
-	Name        string
-	Description string
-	Usage       string
-	Cooldown    string
-	Handler     string
-	Hidden      bool
-	Subcommands map[string]*Command
-	HandlerFunc func(*discordgo.Session, *discordgo.MessageCreate, []string, *Command)
-}
-
 var CommandRegistry map[string]*Command
 
 func LoadCommands(configPath string, logger *logrus.Logger, handlerRegistry map[string]CommandHandler) error {

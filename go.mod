@@ -5,6 +5,7 @@ go 1.23.1
 require (
 	github.com/PuerkitoBio/goquery v1.10.0
 	github.com/bwmarrin/discordgo v0.28.1
+	github.com/go-gormigrate/gormigrate/v2 v2.1.3
 	github.com/joho/godotenv v1.5.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
@@ -12,7 +13,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/sqlite v1.5.6
-	gorm.io/gorm v1.25.7-0.20240204074919-46816ad31dde
+	gorm.io/gorm v1.25.12
 )
 
 require (

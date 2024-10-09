@@ -6,34 +6,22 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
-type Bot struct {
-	Config           *Config
-	Session          *discordgo.Session
-	DB               *gorm.DB
-	logger           *logrus.Logger
-	HandlerRegistry  map[string]CommandHandler
-	ctx              context.Context
-	cancel           context.CancelFunc
-	lastCheckedCodes []GiftCode
-	scrapeMutex      sync.Mutex
-	Code             string
-	Description      string
-	Source           string
-	Logger           *logrus.Logger
-}
+// CommandHandler is the function type used to handle bot commands
+type CommandHandler func(*discordgo.Session, *discordgo.MessageCreate, []string, *Command)
 
 var instance *Bot
+var pendingHandlers = make(map[string]CommandHandler) // Moved declaration to the global scope
 
 func GetBot() *Bot {
 	return instance
 }
+
+// File: internal/bot/bot.go
 
 func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,6 +29,10 @@ func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
+
+	// Log the salt value to verify it is loaded correctly
+	logger.Debugf("Loaded Gift Code Salt: %s", config.GiftCode.Salt)
+
 	bot := &Bot{
 		Config:          config,
 		DB:              db,
@@ -57,6 +49,9 @@ func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
 		bot.Session = session
 	}
 
+	// Set the base URL for GiftCode after bot creation
+	SetGiftCodeBaseURL(config)
+
 	// Process pending registrations
 	bot.ProcessPendingRegistrations()
 
@@ -67,16 +62,37 @@ func NewBot(config *Config, logger *logrus.Logger) (*Bot, error) {
 	return bot, nil
 }
 
+func (b *Bot) ProcessPendingRegistrations() {
+	b.GetLogger().Infof("Processing %d pending handler registrations", len(pendingHandlers))
+	for name, handler := range pendingHandlers {
+		b.RegisterHandler(name, handler)
+		b.GetLogger().Infof("Registered handler: %s", name)
+	}
+	b.GetLogger().Infof("HandlerRegistry now contains %d handlers", len(b.HandlerRegistry))
+	// Clear the pending handlers
+	pendingHandlers = make(map[string]CommandHandler)
+}
+
+func RegisterHandlerLater(name string, handler CommandHandler) {
+	pendingHandlers[name] = handler
+	logrus.Infof("Handler %s queued for registration", name)
+}
+
+func (b *Bot) RegisterHandler(name string, handler CommandHandler) {
+	b.HandlerRegistry[name] = handler
+	b.GetLogger().Debugf("Registered handler: %s", name)
+}
+
 func (b *Bot) Start() error {
 	if b.Config.Discord.Enabled {
-		if err := InitDiscord(b.Config.Discord.Token, b.logger); err != nil {
+		if err := InitDiscord(b.Config.Discord.Token, b.GetLogger()); err != nil {
 			return fmt.Errorf("failed to initialize Discord: %w", err)
 		}
 	}
-	if err := LoadCommands(b.Config.Paths.CommandsConfig, b.logger, b.HandlerRegistry); err != nil {
+	if err := LoadCommands(b.Config.Paths.CommandsConfig, b.GetLogger(), b.HandlerRegistry); err != nil {
 		return fmt.Errorf("failed to load commands: %w", err)
 	}
-	b.logger.Info("Bot has been started")
+	b.GetLogger().Info("Bot has been started")
 	return nil
 }
 
@@ -87,34 +103,11 @@ func (b *Bot) loadHandlers() error {
 		return fmt.Errorf("failed to read handlers directory: %w", err)
 	}
 	for _, file := range files {
-		b.logger.Infof("Loading handler file: %s", file)
+		b.GetLogger().Infof("Loading handler file: %s", file)
 	}
 	// The actual loading of handlers now happens through the pending registrations
 	// processed in NewBot, so we don't need to do anything else here.
 	return nil
-}
-
-var pendingHandlers = make(map[string]CommandHandler)
-
-func (b *Bot) RegisterHandler(name string, handler CommandHandler) {
-	b.HandlerRegistry[name] = handler
-	b.logger.Debugf("Registered handler: %s", name)
-}
-
-func RegisterHandlerLater(name string, handler CommandHandler) {
-	pendingHandlers[name] = handler
-	logrus.Infof("Handler %s queued for registration", name)
-}
-
-func (b *Bot) ProcessPendingRegistrations() {
-	b.logger.Infof("Processing %d pending handler registrations", len(pendingHandlers))
-	for name, handler := range pendingHandlers {
-		b.RegisterHandler(name, handler)
-		b.logger.Infof("Registered handler: %s", name)
-	}
-	b.logger.Infof("HandlerRegistry now contains %d handlers", len(b.HandlerRegistry))
-	// Clear the pending handlers
-	pendingHandlers = make(map[string]CommandHandler)
 }
 
 func (b *Bot) GetHandlerRegistry() map[string]CommandHandler {
@@ -122,24 +115,24 @@ func (b *Bot) GetHandlerRegistry() map[string]CommandHandler {
 }
 
 func (b *Bot) LoadCommands(configPath string) error {
-	return LoadCommands(configPath, b.logger, b.HandlerRegistry)
+	return LoadCommands(configPath, b.GetLogger(), b.HandlerRegistry)
 }
 
 func (b *Bot) Shutdown() error {
 	b.cancel() // Cancel the context to stop all goroutines
 	if b.Config.Discord.Enabled {
 		if err := b.Session.Close(); err != nil {
-			b.logger.WithError(err).Error("Error closing Discord session")
+			b.GetLogger().WithError(err).Error("Error closing Discord session")
 		}
 	}
 	if sqlDB, err := b.DB.DB(); err == nil {
 		if err := sqlDB.Close(); err != nil {
-			b.logger.Errorf("Error closing database connection: %v", err)
+			b.GetLogger().Errorf("Error closing database connection: %v", err)
 		} else {
-			b.logger.Info("Database connection closed successfully")
+			b.GetLogger().Info("Database connection closed successfully")
 		}
 	}
-	b.logger.Info("Bot has been shut down")
+	b.GetLogger().Info("Bot has been shut down")
 	return nil
 }
 
@@ -147,10 +140,10 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	b.logger.Debugf("Received message: %s from user: %s", m.Content, m.Author.Username)
-	err := LoadCommands(b.Config.Paths.CommandsConfig, b.logger, b.HandlerRegistry)
+	b.GetLogger().Debugf("Received message: %s from user: %s", m.Content, m.Author.Username)
+	err := LoadCommands(b.Config.Paths.CommandsConfig, b.GetLogger(), b.HandlerRegistry)
 	if err != nil {
-		b.logger.Errorf("Failed to load command config: %v", err)
+		b.GetLogger().Errorf("Failed to load command config: %v", err)
 		return
 	}
 	HandleCommand(s, m, b.Config)
@@ -159,7 +152,7 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 func (b *Bot) IsAdmin(s *discordgo.Session, guildID, userID string) bool {
 	member, err := s.GuildMember(guildID, userID)
 	if err != nil {
-		b.logger.Errorf("Error fetching guild member: %v", err)
+		b.GetLogger().Errorf("Error fetching guild member: %v", err)
 		return false
 	}
 	for _, roleID := range member.Roles {
@@ -168,32 +161,6 @@ func (b *Bot) IsAdmin(s *discordgo.Session, guildID, userID string) bool {
 		}
 	}
 	return false
-}
-
-func (b *Bot) GetAllGiftCodeRedemptionsPaginated(page, itemsPerPage int) ([]GiftCodeRedemption, error) {
-	var redemptions []GiftCodeRedemption
-	offset := (page - 1) * itemsPerPage
-	result := b.DB.Order("redeemed_at desc").Offset(offset).Limit(itemsPerPage).Find(&redemptions)
-	return redemptions, result.Error
-}
-
-func (b *Bot) GetUserGiftCodeRedemptionsPaginated(discordID string, page, itemsPerPage int) ([]GiftCodeRedemption, error) {
-	var redemptions []GiftCodeRedemption
-	offset := (page - 1) * itemsPerPage
-	result := b.DB.Where("discord_id = ?", discordID).Order("redeemed_at desc").Offset(offset).Limit(itemsPerPage).Find(&redemptions)
-	return redemptions, result.Error
-}
-
-func (b *Bot) GetPlayerID(discordID string) (string, error) {
-	return GetPlayerID(discordID)
-}
-
-func (b *Bot) RecordGiftCodeRedemption(discordID, playerID, giftCode, status string) error {
-	return RecordGiftCodeRedemption(discordID, playerID, giftCode, status)
-}
-
-func (b *Bot) GetAllPlayerIDs() (map[string]string, error) {
-	return GetAllPlayerIDs()
 }
 
 func (b *Bot) SendMessage(s *discordgo.Session, channelID, content string) error {
@@ -205,4 +172,13 @@ func (b *Bot) GetLogger() *logrus.Logger {
 	return b.logger
 }
 
-type CommandHandler func(*discordgo.Session, *discordgo.MessageCreate, []string, *Command)
+/*
+// Session Management Upgrade (Commented Out)
+func (b *Bot) SetSession(session *discordgo.Session) {
+	b.Session = session
+}
+
+func (b *Bot) GetSession() *discordgo.Session {
+	return b.Session
+}
+*/

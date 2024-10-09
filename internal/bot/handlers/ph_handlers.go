@@ -17,6 +17,6 @@ func init() {
 func PlaceholderHandler(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	response := fmt.Sprintf("The command '%s' is not implemented yet... stay tuned!", cmd.Name)
 	if err := bot.SendMessage(s, m.ChannelID, response); err != nil {
-		bot.GetBot().Logger.WithError(err).Error("Failed to send placeholder message")
+		bot.GetBot().GetLogger().WithError(err).Error("Failed to send placeholder message")
 	}
 }

@@ -12,43 +12,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type Config struct {
-	Discord struct {
-		Token                 string `mapstructure:"token"`
-		ClientID              string `mapstructure:"client_id"`
-		ClientSecret          string `mapstructure:"client_secret"`
-		RoleID                string `mapstructure:"RoleID"`
-		RedirectURL           string `mapstructure:"redirect_url"`
-		Enabled               bool   `mapstructure:"enabled"`
-		CommandPrefix         string `mapstructure:"command_prefix"`
-		NotificationChannelID string `mapstructure:"notification_channel_id"`
-	} `mapstructure:"discord"`
-	Server struct {
-		Port string `mapstructure:"port"`
-	} `mapstructure:"server"`
-	Logging struct {
-		LogLevel string `mapstructure:"log_level"`
-	} `mapstructure:"logging"`
-	Paths struct {
-		CommandsConfig string `mapstructure:"commands_config"`
-	} `mapstructure:"paths"`
-	Database struct {
-		VolumeMountPath string `mapstructure:"volumeMountPath"`
-		Name            string `mapstructure:"name"`
-		Path            string `mapstructure:"path"`
-	} `mapstructure:"database"`
-	GiftCode struct {
-		Salt        string        `mapstructure:"salt"`
-		MinLength   int           `mapstructure:"min_length"`
-		MaxLength   int           `mapstructure:"max_length"`
-		APIEndpoint string        `mapstructure:"api_endpoint"`
-		APITimeout  time.Duration `mapstructure:"api_timeout"`
-	} `mapstructure:"gift_code"`
-	Scrape struct {
-		Sites []ScrapeSite `mapstructure:"sites"`
-	} `mapstructure:"scrape"`
-}
-
 var config *Config
 
 func LoadConfig() (*Config, error) {
@@ -115,6 +78,12 @@ func LoadConfig() (*Config, error) {
 	if notificationChannelID := os.Getenv("DISCORD_NOTIFICATION_CHANNEL_ID"); notificationChannelID != "" {
 		config.Discord.NotificationChannelID = notificationChannelID
 	}
+	if giftCodeSalt := os.Getenv("GIFT_CODE_SALT"); giftCodeSalt != "" {
+		config.GiftCode.Salt = giftCodeSalt
+		fmt.Printf("Gift Code Salt set from environment: %s\n", config.GiftCode.Salt)
+	} else {
+		fmt.Println("GIFT_CODE_SALT not set in environment")
+	}
 
 	// Set default values if not provided
 	if config.Server.Port == "" {
@@ -135,8 +104,10 @@ func LoadConfig() (*Config, error) {
 		"ServerPort":     config.Server.Port,
 		"LogLevel":       config.Logging.LogLevel,
 		"GiftCodeAPI":    config.GiftCode.APIEndpoint,
+		"GiftCodeSalt":   config.GiftCode.Salt,
 	}).Info("Loaded configuration")
 
+	fmt.Printf("Loaded Gift Code Salt: %s\n", config.GiftCode.Salt)
 	fmt.Printf("Final Discord Role ID: %s\n", config.Discord.RoleID)
 
 	return config, nil

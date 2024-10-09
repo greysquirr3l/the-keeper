@@ -104,3 +104,10 @@ commands:
     cooldown: "3s"
     handler: handleHelpCommand
     hidden: false
+
+  dbdump:
+    description: "Dump Databases"
+    usage: "!dumpdb"
+    cooldown: "30s"
+    handler: "handleDumpDatabaseCommand"
+    hidden: true

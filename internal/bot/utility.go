@@ -2,6 +2,8 @@
 package bot
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 var (
@@ -71,4 +74,40 @@ func fileExists(filename string) bool {
 // NormalizeInput trims spaces and converts input to lowercase for consistent command handling.
 func NormalizeInput(input string) string {
 	return strings.ToLower(strings.TrimSpace(input))
+}
+
+func (b *Bot) GetPlayerID(discordID string) (string, error) {
+	var player Player
+	err := b.DB.Where("discord_id = ?", discordID).First(&player).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", fmt.Errorf("no player found with Discord ID: %s", discordID)
+		}
+		return "", err
+	}
+	return player.PlayerID, nil
+}
+
+func (b *Bot) GetAllPlayerIDs() (map[string]string, error) {
+	var players []Player
+	result := b.DB.Find(&players)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	playerIDs := make(map[string]string)
+	for _, player := range players {
+		playerIDs[player.DiscordID] = player.PlayerID
+	}
+	return playerIDs, nil
+}
+
+// ListPlayers lists all players in the database.
+func (b *Bot) ListPlayers() ([]Player, error) {
+	var players []Player
+	result := b.DB.Order("discord_id").Find(&players)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return players, nil
 }
