@@ -29,3 +29,14 @@ players.yml
 
 allcode.txt
 copy_code.sh
+
+.DS_Store
+tree.txt
+the-keeper
+keeper.db
+.env
+.env_local
+run_local.sh
+convert_players.sh
+players.txt
+railway.yaml

@@ -1,3 +1,5 @@
+// File: internal/bot/discord.go
+
 package bot
 
 import (
@@ -66,29 +68,30 @@ func InitDiscord(token string, logger *logrus.Logger) error {
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Ignore messages from the bot itself
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
 
 	discordLogger.Debugf("Received message: %s from user: %s", m.Content, m.Author.Username)
 
-	config := GetConfig()
-	commandConfig, err := LoadCommandConfig(config.Paths.CommandsConfig)
+	bot := GetBot()
+	config := bot.Config
+	err := LoadCommands(config.Paths.CommandsConfig, discordLogger, bot.HandlerRegistry)
 	if err != nil {
 		discordLogger.Errorf("Failed to load command config: %v", err)
 		return
 	}
 
-	HandleCommand(s, m, commandConfig)
+	HandleCommand(s, m, config)
 }
 
-// Helper function to send a message with error logging
-func SendMessage(s *discordgo.Session, channelID string, message string) {
+// SendMessage is a helper function to send a message to a channel
+func SendMessage(s *discordgo.Session, channelID string, message string) error {
 	_, err := s.ChannelMessageSend(channelID, message)
 	if err != nil {
 		discordLogger.Errorf("Error sending message: %v", err)
 	}
+	return err
 }
 
 // Helper function to check if a user has a specific role
@@ -115,7 +118,7 @@ func IsAdmin(s *discordgo.Session, guildID, userID string) bool {
 	}
 
 	for _, roleID := range member.Roles {
-		if roleID == GetConfig().Discord.RoleID {
+		if roleID == GetBot().Config.Discord.RoleID {
 			return true
 		}
 	}
