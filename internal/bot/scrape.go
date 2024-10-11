@@ -15,15 +15,37 @@ import (
 func (b *Bot) ScrapeGiftCodes(ctx context.Context) ([]ScrapeResult, error) {
 	var results []ScrapeResult
 
+	// Channels to collect results and errors from goroutines
+	resultChan := make(chan ScrapeResult)
+	errorChan := make(chan error)
+
+	// Start scraping sites concurrently
 	for _, site := range b.Config.Scrape.Sites {
-		codes, err := b.scrapeSite(ctx, site)
-		results = append(results, ScrapeResult{
-			SiteName: site.Name,
-			Codes:    codes,
-			Error:    err,
-		})
+		go func(site ScrapeSite) {
+			codes, err := b.scrapeSite(ctx, site)
+			if err != nil {
+				errorChan <- err
+				return
+			}
+			resultChan <- ScrapeResult{
+				SiteName: site.Name,
+				Codes:    codes,
+				Error:    err,
+			}
+		}(site) // Pass site as an argument to avoid race conditions
 	}
 
+	// Collect the results from all goroutines
+	for range b.Config.Scrape.Sites {
+		select {
+		case result := <-resultChan:
+			results = append(results, result)
+		case err := <-errorChan:
+			b.GetLogger().WithError(err).Error("Error scraping site")
+		}
+	}
+
+	// Find new codes after scraping all sites
 	newCodes := b.findNewCodes(results)
 	if len(newCodes) > 0 {
 		if err := b.notifyNewCodes(ctx, newCodes); err != nil {
