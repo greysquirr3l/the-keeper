@@ -4,6 +4,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"the-keeper/internal/bot"
@@ -56,8 +57,12 @@ func handleTermAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args
 		s.ChannelMessageSend(m.ChannelID, "𐄂 Invalid term. The term must be a single word without spaces.")
 		return
 	}
-	description := strings.Join(args[1:], " ")
 
+	// Replace literal `\n` with actual newlines to preserve formatting
+	description := strings.Join(args[1:], " ")
+	description = strings.ReplaceAll(description, `\n`, "\n")
+
+	// Add the term with preserved markdown and newlines
 	err := bot.GetBot().AddTerm(term, description)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ Failed to add term: %v", err))
@@ -79,15 +84,25 @@ func handleTermEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 		s.ChannelMessageSend(m.ChannelID, "𐄂 Invalid term. The term must be a single word without spaces.")
 		return
 	}
+
+	// Join the arguments to form the new description, preserving the input formatting
 	newDescription := strings.Join(args[1:], " ")
 
+	// Replace literal `\n` strings with actual newline characters
+	newDescription = strings.ReplaceAll(newDescription, `\n`, "\n")
+
+	// Debugging log to check the final formatted description before saving
+	log.Printf("Editing term '%s' with description: %s", term, newDescription)
+
+	// Edit the term in the database
 	err := bot.GetBot().EditTerm(term, newDescription)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ Failed to edit term: %v", err))
 		return
 	}
 
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✓ Term '%s' updated successfully!", term))
+	// Send a success message including the updated description with proper markdown
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✓ Term '%s' updated successfully!\n%s", term, newDescription))
 }
 
 // Delete an existing term
@@ -151,5 +166,6 @@ func handleTermGetCommand(s *discordgo.Session, m *discordgo.MessageCreate, args
 		return
 	}
 
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("```%s```", description))
+	// s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("```%s```", description))
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s", description))
 }

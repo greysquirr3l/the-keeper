@@ -85,9 +85,9 @@ func handleIDAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args [
 		discordID = m.Author.ID
 		playerID = args[0]
 	} else {
-		usage := "Usage: !id add <playerID>"
+		usage := "Usage: `!id add <playerID>`"
 		if isAuthorized {
-			usage = "Usage: !id add <discordID> <playerID>"
+			usage = "Usage: `!id add <discordID> <playerID>`"
 		}
 		bot.SendMessage(s, m.ChannelID, usage)
 		return
@@ -100,21 +100,21 @@ func handleIDAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args [
 
 	err := botInstance.DB.Create(&bot.Player{DiscordID: discordID, PlayerID: playerID}).Error
 	if err != nil {
-		botInstance.GetLogger().WithError(err).Error("Error adding player ID")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Error adding player ID: %v", err))
+		botInstance.GetLogger().WithError(err).Error("Error adding playerID")
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Unable to add playerID, it seems I already have it.  If I don't please let an admin know: %v", err))
 		return
 	}
 
 	if discordID == m.Author.ID {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("✓ Player ID %s has been added for you.", playerID))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("✓ PlayerID %s has been added for you.", playerID))
 	} else {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("✓ Player ID %s has been added for Discord ID %s.", playerID, discordID))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("✓ PlayerID %s has been added for Discord ID %s.", playerID, discordID))
 	}
 }
 
 func handleIDEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) < 1 {
-		bot.SendMessage(s, m.ChannelID, "Usage: !id edit <newPlayerID>")
+		bot.SendMessage(s, m.ChannelID, "Usage: `!id edit <newPlayerID>`")
 		return
 	}
 	newPlayerID := args[0]
@@ -126,22 +126,22 @@ func handleIDEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args 
 	botInstance := bot.GetBot()
 	err := botInstance.DB.Model(&bot.Player{}).Where("discord_id = ?", m.Author.ID).Update("player_id", newPlayerID).Error
 	if err != nil {
-		botInstance.GetLogger().WithError(err).Error("Error editing player ID")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Error editing player ID: %v", err))
+		botInstance.GetLogger().WithError(err).Error("Error editing playerID")
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Error editing playerID: %v", err))
 		return
 	}
-	bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Your player ID has been updated to %s.", newPlayerID))
+	bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Your playerID has been updated to %s.", newPlayerID))
 }
 
 func handleIDRemoveCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	botInstance := bot.GetBot()
 	err := botInstance.DB.Where("discord_id = ?", m.Author.ID).Delete(&bot.Player{}).Error
 	if err != nil {
-		botInstance.GetLogger().WithError(err).Error("Error removing player ID")
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Error removing player ID: %v", err))
+		botInstance.GetLogger().WithError(err).Error("Error removing playerID")
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Error removing playerID: %v", err))
 		return
 	}
-	bot.SendMessage(s, m.ChannelID, "✓ Your player ID association has been removed.")
+	bot.SendMessage(s, m.ChannelID, "✓ Your playerID association has been removed.")
 }
 
 func handleIDListCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
@@ -154,12 +154,12 @@ func handleIDListCommand(s *discordgo.Session, m *discordgo.MessageCreate, args 
 		return
 	}
 	if len(players) == 0 {
-		bot.SendMessage(s, m.ChannelID, "⚠️ No player IDs have been registered.")
+		bot.SendMessage(s, m.ChannelID, "⚠️ No playerIDs have been registered.")
 		return
 	}
 
 	var response strings.Builder
-	response.WriteString("Player ID List:\n")
+	response.WriteString("PlayerID List:\n")
 	for _, player := range players {
 		user, err := s.User(player.DiscordID)
 		username := "Unknown User"
@@ -169,6 +169,6 @@ func handleIDListCommand(s *discordgo.Session, m *discordgo.MessageCreate, args 
 		response.WriteString(fmt.Sprintf("%s: %s\n", username, player.PlayerID))
 	}
 	if err := bot.SendMessage(s, m.ChannelID, response.String()); err != nil {
-		botInstance.GetLogger().WithError(err).Error("Failed to send player ID list")
+		botInstance.GetLogger().WithError(err).Error("Failed to send playerID list")
 	}
 }

@@ -5,12 +5,14 @@ package bot
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"gorm.io/gorm"
 )
 
 // AddTerm adds a new term and its description to the database.
 func (b *Bot) AddTerm(term, description string) error {
+	// No need to replace if newlines are already there; store the markdown as-is
 	newTerm := Term{
 		Term:        term,
 		Description: description,
@@ -24,24 +26,16 @@ func (b *Bot) AddTerm(term, description string) error {
 	return nil
 }
 
-// EditTerm edits the description of an existing term.
+// EditTerm updates an existing term with a new description.
 func (b *Bot) EditTerm(term, newDescription string) error {
-	var existingTerm Term
-	result := b.DB.Where("term = ?", term).First(&existingTerm)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			log.Printf("Term '%s' not found for editing", term)
-			return fmt.Errorf("term '%s' not found", term)
-		}
-		log.Printf("Error finding term '%s' for editing: %v", term, result.Error)
-		return result.Error
-	}
+	// Replace literal `\n` with actual newline characters to store properly formatted text
+	newDescription = strings.ReplaceAll(newDescription, `\n`, "\n")
 
-	existingTerm.Description = newDescription
-	saveResult := b.DB.Save(&existingTerm)
-	if saveResult.Error != nil {
-		log.Printf("Error saving term '%s': %v", term, saveResult.Error)
-		return saveResult.Error
+	// Update the term in the database with the formatted description
+	result := b.DB.Model(&Term{}).Where("term = ?", term).Update("description", newDescription)
+	if result.Error != nil {
+		log.Printf("Error editing term '%s': %v", term, result.Error)
+		return result.Error
 	}
 	log.Printf("Successfully updated term '%s'", term)
 	return nil

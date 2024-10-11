@@ -12,7 +12,7 @@ server:
   port: "8080"
 
 logging:
-  log_level: "debug"
+  log_level: "warn"
 
 paths:
   commands_config: "configs/commands.yaml"
