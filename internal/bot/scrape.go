@@ -8,9 +8,34 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
+
+func (b *Bot) StartPeriodicScraping() {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour) // Adjust the interval as needed
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				results, err := b.ScrapeGiftCodes(ctx)
+				if err != nil {
+					b.GetLogger().WithError(err).Error("Error during periodic scraping")
+				} else {
+					b.GetLogger().WithField("results", results).Info("Periodic scraping completed")
+				}
+				cancel()
+			case <-b.ctx.Done():
+				b.GetLogger().Info("Stopping periodic scraping")
+				return
+			}
+		}
+	}()
+}
 
 func (b *Bot) ScrapeGiftCodes(ctx context.Context) ([]ScrapeResult, error) {
 	var results []ScrapeResult
