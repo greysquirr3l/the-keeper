@@ -31,7 +31,7 @@ func SetGiftCodeBaseURL(config *Config) {
 }
 
 // DeployGiftCode deploys the specified gift code to a list of player IDs.
-func (b *Bot) DeployGiftCode(giftCode string, playerIDs []string) {
+func (b *Bot) DeployGiftCode(giftCode string, playerIDs map[string]string) {
 	var wg sync.WaitGroup
 	jobs := make(chan string, len(playerIDs))
 	results := make(chan string, len(playerIDs))
@@ -132,6 +132,42 @@ func (b *Bot) RedeemGiftCode(playerID, giftCode string) (bool, string, error) {
 		return false, "Gift code already claimed", nil
 	default:
 		return false, fmt.Sprintf("Unknown error: %v", resp["msg"]), nil
+	}
+}
+
+// ValidateGiftCode checks if a gift code is valid for a player.
+func (b *Bot) ValidateGiftCode(giftCode, playerID string) (bool, string) {
+	ctx := context.Background()
+
+	data := map[string]string{
+		"fid":  playerID,
+		"cdk":  giftCode,
+		"time": fmt.Sprintf("%d", time.Now().UnixNano()/int64(time.Millisecond)),
+	}
+
+	signedData := b.appendSign(data)
+
+	resp, err := b.makeAPIRequest(ctx, "/validate_gift_code", signedData)
+	if err != nil {
+		return false, fmt.Sprintf("API request failed: %v", err)
+	}
+
+	errCode, ok := resp["err_code"].(float64)
+	if !ok {
+		return false, "Invalid error code format"
+	}
+
+	switch int(errCode) {
+	case 20000:
+		return true, "Gift code is valid"
+	case 40014:
+		return false, "Gift Code not found"
+	case 40007:
+		return false, "Expired, unable to claim"
+	case 40008:
+		return false, "Gift code already claimed"
+	default:
+		return false, fmt.Sprintf("Unknown error: %v", resp["msg"])
 	}
 }
 
