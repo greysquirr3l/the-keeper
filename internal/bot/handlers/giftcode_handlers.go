@@ -75,7 +75,7 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 	}
 
 	if len(args) < 1 {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Usage: %s", cmd.Usage))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Usage: `%s`", cmd.Usage))
 		return
 	}
 
@@ -92,7 +92,7 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 		return
 	}
 
-	bot.SendMessage(s, m.ChannelID, "🚀 Deploying gift code to all users...")
+	bot.SendMessage(s, m.ChannelID, "\n\n🚀 Deploying gift code to all users...")
 
 	// Deploy the gift code using concurrent processing
 	go func() {
@@ -138,9 +138,9 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 				continue
 			}
 
-			bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s: %s", playerID, message))
+			bot.SendMessage(s, m.ChannelID, fmt.Sprintf("-# Player ID ** %s** : %s", playerID, message))
 		}
-		bot.SendMessage(s, m.ChannelID, "✓ Gift code deployment completed.")
+		bot.SendMessage(s, m.ChannelID, "\n✓ Gift code deployment completed.")
 	}()
 }
 

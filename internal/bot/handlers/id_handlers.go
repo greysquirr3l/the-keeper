@@ -48,8 +48,8 @@ func sendIDHelp(s *discordgo.Session, channelID string, cmd *bot.Command) {
 	helpMsg.WriteString("Available ID subcommands:\n")
 	for subName, subCmd := range cmd.Subcommands {
 		if !subCmd.Hidden {
-			helpMsg.WriteString(fmt.Sprintf("  %s: %s\n", subName, subCmd.Description))
-			helpMsg.WriteString(fmt.Sprintf("    Usage: %s\n", subCmd.Usage))
+			helpMsg.WriteString(fmt.Sprintf("  ** %s **: %s\n", subName, subCmd.Description))
+			helpMsg.WriteString(fmt.Sprintf("    Usage: `%s`\n", subCmd.Usage))
 			if subCmd.Cooldown != "" {
 				helpMsg.WriteString(fmt.Sprintf("    Cooldown: %s\n", subCmd.Cooldown))
 			}
@@ -159,7 +159,7 @@ func handleIDListCommand(s *discordgo.Session, m *discordgo.MessageCreate, args 
 	}
 
 	var response strings.Builder
-	response.WriteString("PlayerID List:\n")
+	response.WriteString("** PlayerID List: **\n")
 	for _, player := range players {
 		user, err := s.User(player.DiscordID)
 		username := "Unknown User"

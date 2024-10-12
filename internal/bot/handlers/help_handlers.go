@@ -28,7 +28,7 @@ func sendGeneralHelp(s *discordgo.Session, channelID string) {
 	helpMessage.WriteString("Available commands:\n")
 	for _, cmd := range bot.CommandRegistry {
 		if !cmd.Hidden {
-			helpMessage.WriteString(fmt.Sprintf("!%s: %s\n", cmd.Name, cmd.Description))
+			helpMessage.WriteString(fmt.Sprintf("** !%s **: %s\n", cmd.Name, cmd.Description))
 		}
 	}
 	helpMessage.WriteString("\nUse !help <command> for more information on a specific command.")
@@ -48,9 +48,9 @@ func sendCommandHelp(s *discordgo.Session, channelID string, commandName string)
 	}
 
 	var helpMessage strings.Builder
-	helpMessage.WriteString(fmt.Sprintf("Help for !%s:\n", cmd.Name))
+	helpMessage.WriteString(fmt.Sprintf("Help for ** !%s **:\n", cmd.Name))
 	helpMessage.WriteString(fmt.Sprintf("Description: %s\n", cmd.Description))
-	helpMessage.WriteString(fmt.Sprintf("Usage: %s\n", cmd.Usage))
+	helpMessage.WriteString(fmt.Sprintf("Usage: `%s`\n", cmd.Usage))
 	if cmd.Cooldown != "" {
 		helpMessage.WriteString(fmt.Sprintf("Cooldown: %s\n", cmd.Cooldown))
 	}
@@ -58,7 +58,7 @@ func sendCommandHelp(s *discordgo.Session, channelID string, commandName string)
 		helpMessage.WriteString("Subcommands:\n")
 		for _, subCmd := range cmd.Subcommands {
 			if !subCmd.Hidden {
-				helpMessage.WriteString(fmt.Sprintf("  %s: %s\n", subCmd.Name, subCmd.Description))
+				helpMessage.WriteString(fmt.Sprintf("    ** %s **: %s\n", subCmd.Name, subCmd.Description))
 			}
 		}
 	}

@@ -26,7 +26,7 @@ func init() {
 // Main term command handler
 func handleTermCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) == 0 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: term <add|edit|remove|list|get> [args]")
+		s.ChannelMessageSend(m.ChannelID, "Usage: `!term <add|edit|remove|list|get> [args]`")
 		return
 	}
 
@@ -48,7 +48,7 @@ func handleTermCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []
 // Add a new term
 func handleTermAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) < 2 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: term add <term> <description>")
+		s.ChannelMessageSend(m.ChannelID, "Usage: `!term add <term> <description>`")
 		return
 	}
 
@@ -75,7 +75,7 @@ func handleTermAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args
 // Edit an existing term
 func handleTermEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) < 2 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: term edit <term> <new description>")
+		s.ChannelMessageSend(m.ChannelID, "Usage: `!term edit <term> <new description>`")
 		return
 	}
 
@@ -108,7 +108,7 @@ func handleTermEditCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 // Delete an existing term
 func handleTermRemoveCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) < 1 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: term remove <term>")
+		s.ChannelMessageSend(m.ChannelID, "Usage: `!term remove <term>`")
 		return
 	}
 
@@ -151,7 +151,7 @@ func handleTermListCommand(s *discordgo.Session, m *discordgo.MessageCreate, arg
 // Get a term's description
 func handleTermGetCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
 	if len(args) < 1 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: term get <term>")
+		s.ChannelMessageSend(m.ChannelID, "Usage: `!term get <term>`")
 		return
 	}
 
