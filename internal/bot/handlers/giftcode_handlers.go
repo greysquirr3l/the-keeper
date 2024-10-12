@@ -94,9 +94,52 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 
 	bot.SendMessage(s, m.ChannelID, "🚀 Deploying gift code to all users...")
 
-	// Deploy the gift code using the new concurrent processing method
+	// Deploy the gift code using concurrent processing
 	go func() {
-		botInstance.DeployGiftCode(giftCode, playerIDs)
+		for discordID, playerID := range playerIDs {
+			success, message, err := botInstance.RedeemGiftCode(playerID, giftCode)
+			if err != nil {
+				logger.WithError(err).
+					WithField("player_id", playerID).
+					WithField("gift_code", giftCode).
+					Error("Error redeeming gift code")
+				bot.SendMessage(s, m.ChannelID, fmt.Sprintf("𐄂 Error for Player ID %s: %v", playerID, err))
+				continue
+			}
+
+			status := "Success"
+			if !success {
+				status = "Failed"
+			}
+
+			// Handle specific error codes from the API
+			switch message {
+			case "Gift Code not found":
+				status = "Failed"
+			case "Expired, unable to claim":
+				status = "Failed"
+			case "Gift code already claimed":
+				status = "Already Claimed"
+			case "API request failed: 40014":
+				message = "Gift Code not found"
+				status = "Failed"
+			case "API request failed: 40007":
+				message = "Expired, unable to claim"
+				status = "Failed"
+			case "API request failed: 40008":
+				message = "Gift code already claimed"
+				status = "Already Claimed"
+			}
+
+			err = botInstance.RecordGiftCodeRedemption(discordID, playerID, giftCode, status)
+			if err != nil {
+				logger.WithError(err).Error("Gift code redeemed but failed to record in database")
+				bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Gift code redeemed for Player ID %s but failed to record: %v", playerID, err))
+				continue
+			}
+
+			bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s: %s", playerID, message))
+		}
 		bot.SendMessage(s, m.ChannelID, "✓ Gift code deployment completed.")
 	}()
 }
@@ -115,10 +158,24 @@ func handleGiftCodeRedeemCommand(s *discordgo.Session, m *discordgo.MessageCreat
 	}
 
 	giftCode := strings.TrimSpace(args[0]) // Keep the original case, only trim spaces.
-	playerID, err := botInstance.GetPlayerID(m.Author.ID)
-	if err != nil {
-		bot.SendMessage(s, m.ChannelID, "⚠️ You do not have a Player ID associated. Use `!id add <PlayerID>` to associate your account.")
-		return
+	var playerID string
+	var discordID string = m.Author.ID
+
+	// Check if an extra argument (discordID) is provided for authorized users
+	if len(args) > 1 && botInstance.IsAdmin(s, m.GuildID, m.Author.ID) {
+		discordID = args[1]
+		playerID, _ = botInstance.GetPlayerID(discordID)
+		if playerID == "" {
+			bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ The provided Discord ID '%s' does not have an associated Player ID.", discordID))
+			return
+		}
+	} else {
+		var err error
+		playerID, err = botInstance.GetPlayerID(m.Author.ID)
+		if err != nil {
+			bot.SendMessage(s, m.ChannelID, "⚠️ You do not have a Player ID associated. Use `!id add <PlayerID>` to associate your account.")
+			return
+		}
 	}
 
 	success, message, err := botInstance.RedeemGiftCode(playerID, giftCode)
@@ -133,7 +190,26 @@ func handleGiftCodeRedeemCommand(s *discordgo.Session, m *discordgo.MessageCreat
 		status = "Failed"
 	}
 
-	err = botInstance.RecordGiftCodeRedemption(m.Author.ID, playerID, giftCode, status)
+	// Handle specific error codes from the API
+	switch message {
+	case "Gift Code not found":
+		status = "Failed"
+	case "Expired, unable to claim":
+		status = "Failed"
+	case "Gift code already claimed":
+		status = "Already Claimed"
+	case "API request failed: 40014":
+		message = "Gift Code not found"
+		status = "Failed"
+	case "API request failed: 40007":
+		message = "Expired, unable to claim"
+		status = "Failed"
+	case "API request failed: 40008":
+		message = "Gift code already claimed"
+		status = "Already Claimed"
+	}
+
+	err = botInstance.RecordGiftCodeRedemption(discordID, playerID, giftCode, status)
 	if err != nil {
 		botInstance.GetLogger().WithError(err).Error("Gift code redeemed but failed to record")
 		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Gift code redeemed but failed to record: %v", err))
