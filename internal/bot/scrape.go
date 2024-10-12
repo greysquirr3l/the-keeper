@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -107,40 +107,27 @@ func (b *Bot) codeExists(code GiftCode) bool {
 }
 
 func (b *Bot) notifyNewCodes(ctx context.Context, newCodes []GiftCode) error {
+	// Validate the Notification Channel ID
+	channelID, err := strconv.ParseUint(b.Config.Discord.NotificationChannelID, 10, 64)
+	if err != nil {
+		b.GetLogger().WithError(err).WithField("channel_id", b.Config.Discord.NotificationChannelID).
+			Error("Invalid Notification Channel ID provided. Please ensure it is a valid Discord channel ID.")
+		return fmt.Errorf("invalid notification channel ID: %w", err)
+	}
+
+	// Prepare the message for new codes
 	message := "🎉 New gift codes found:\n\n"
 	for _, code := range newCodes {
 		message += fmt.Sprintf("**Code:** %s\n**Description:** %s\n**Source:** %s\n\n", code.Code, code.Description, code.Source)
 	}
 
-	channelID := b.Config.Discord.NotificationChannelID
-	_, err := b.Session.ChannelMessageSend(channelID, message)
+	// Send the message to the notification channel
+	_, err = b.Session.ChannelMessageSend(strconv.FormatUint(channelID, 10), message)
 	if err != nil {
 		return fmt.Errorf("error sending new codes notification: %w", err)
 	}
+
+	// Log successful notification
 	b.GetLogger().WithField("code_count", len(newCodes)).Info("New gift codes notification sent")
 	return nil
-}
-
-func (b *Bot) StartPeriodicScraping() {
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour) // Adjust the interval as needed
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-				results, err := b.ScrapeGiftCodes(ctx)
-				if err != nil {
-					b.GetLogger().WithError(err).Error("Error during periodic scraping")
-				} else {
-					b.GetLogger().WithField("results", results).Info("Periodic scraping completed")
-				}
-				cancel()
-			case <-b.ctx.Done():
-				b.GetLogger().Info("Stopping periodic scraping")
-				return
-			}
-		}
-	}()
 }

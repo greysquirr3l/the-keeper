@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -84,6 +85,20 @@ func LoadConfig() (*Config, error) {
 	} else {
 		fmt.Println("GIFT_CODE_SALT not set in environment")
 	}
+	// Ensure notification channel ID is correctly set
+	discordNotificationChannelID := os.Getenv("DISCORD_NOTIFICATION_CHANNEL")
+	if discordNotificationChannelID == "" {
+		logrus.Fatal("DISCORD_NOTIFICATION_CHANNEL is not set or invalid")
+	}
+
+	// Convert channel ID from string to int64 (if needed)
+	_, err := strconv.ParseUint(discordNotificationChannelID, 10, 64)
+	if err != nil {
+		logrus.Fatalf("Invalid DISCORD_NOTIFICATION_CHANNEL value: %s. Error: %v", discordNotificationChannelID, err)
+	}
+	config.Discord.NotificationChannelID = discordNotificationChannelID
+
+	// return &config, nil
 
 	// Set default values if not provided
 	if config.Server.Port == "" {
