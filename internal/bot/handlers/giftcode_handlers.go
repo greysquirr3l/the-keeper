@@ -24,8 +24,8 @@ func sendGiftCodeHelp(s *discordgo.Session, channelID string, cmd *bot.Command) 
 	helpMessage := "Available giftcode subcommands:\n"
 	for name, subCmd := range cmd.Subcommands {
 		if !subCmd.Hidden {
-			helpMessage += fmt.Sprintf("  %s: %s\n", name, subCmd.Description)
-			helpMessage += fmt.Sprintf("    Usage: %s\n", subCmd.Usage)
+			helpMessage += fmt.Sprintf("  ** %s** : %s\n", name, subCmd.Description)
+			helpMessage += fmt.Sprintf("    Usage: `%s`\n", subCmd.Usage)
 		}
 	}
 	if err := bot.SendMessage(s, channelID, helpMessage); err != nil {
