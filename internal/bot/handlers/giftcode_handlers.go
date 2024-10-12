@@ -94,33 +94,11 @@ func handleGiftCodeDeployCommand(s *discordgo.Session, m *discordgo.MessageCreat
 
 	bot.SendMessage(s, m.ChannelID, "🚀 Deploying gift code to all users...")
 
-	for discordID, playerID := range playerIDs {
-		success, message, err := botInstance.RedeemGiftCode(playerID, giftCode)
-		if err != nil {
-			logger.WithError(err).
-				WithField("player_id", playerID).
-				WithField("gift_code", giftCode).
-				Error("Error redeeming gift code")
-			bot.SendMessage(s, m.ChannelID, fmt.Sprintf("𐄂 Error for Player ID %s: %v", playerID, err))
-			continue
-		}
-
-		status := "Success"
-		if !success {
-			status = "Failed"
-		}
-
-		err = botInstance.RecordGiftCodeRedemption(discordID, playerID, giftCode, status)
-		if err != nil {
-			logger.WithError(err).Error("Gift code redeemed but failed to record in database")
-			bot.SendMessage(s, m.ChannelID, fmt.Sprintf("⚠️ Gift code redeemed for Player ID %s but failed to record: %v", playerID, err))
-			continue
-		}
-
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Player ID %s: %s", playerID, message))
-	}
-
-	bot.SendMessage(s, m.ChannelID, "✓ Gift code deployment completed.")
+	// Deploy the gift code using the new concurrent processing method
+	go func() {
+		botInstance.DeployGiftCode(giftCode, playerIDs)
+		bot.SendMessage(s, m.ChannelID, "✓ Gift code deployment completed.")
+	}()
 }
 
 // Redeem gift code command handler

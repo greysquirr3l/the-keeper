@@ -12,7 +12,15 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
+)
+
+const (
+	batchSize    = 10 // Size of each batch of player IDs
+	maxRetries   = 3  // Maximum number of retries for each player
+	maxWorkers   = 5  // Maximum number of concurrent workers
+	retryBackoff = 2  // Multiplier for exponential backoff
 )
 
 var baseURL string
@@ -22,8 +30,79 @@ func SetGiftCodeBaseURL(config *Config) {
 	baseURL = config.GiftCode.APIEndpoint
 }
 
-// ValidateGiftCode checks if a gift code is valid for a player.
-func (b *Bot) ValidateGiftCode(giftCode, playerID string) (bool, string) {
+// DeployGiftCode deploys the specified gift code to a list of player IDs.
+func (b *Bot) DeployGiftCode(giftCode string, playerIDs []string) {
+	var wg sync.WaitGroup
+	jobs := make(chan string, len(playerIDs))
+	results := make(chan string, len(playerIDs))
+
+	// Launch worker pool
+	for w := 0; w < maxWorkers; w++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			for playerID := range jobs {
+				b.processGiftCodeRedemption(playerID, giftCode, results)
+			}
+		}(w)
+	}
+
+	// Add jobs to the channel
+	for _, playerID := range playerIDs {
+		jobs <- playerID
+	}
+	close(jobs)
+
+	// Wait for all workers to finish
+	wg.Wait()
+	close(results)
+
+	// Collect and log results
+	for result := range results {
+		b.GetLogger().Info(result)
+	}
+}
+
+// processGiftCodeRedemption attempts to redeem a gift code for a specific player, with retry logic for timeouts.
+func (b *Bot) processGiftCodeRedemption(playerID, giftCode string, results chan<- string) {
+	var success bool
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Attempt to redeem the gift code
+		ok, message, err := b.RedeemGiftCode(playerID, giftCode)
+		if err == nil && ok {
+			results <- fmt.Sprintf("Player ID %s: %s", playerID, message)
+			success = true
+			break
+		}
+
+		// Handle timeout and retry
+		if err != nil && strings.Contains(err.Error(), "TIMEOUT") {
+			b.GetLogger().Warnf("Player ID %s: Timeout on attempt %d/%d, retrying...", playerID, attempt, maxRetries)
+			time.Sleep(time.Duration(retryBackoff*attempt) * time.Second)
+		} else if err != nil {
+			results <- fmt.Sprintf("Player ID %s: Error redeeming gift code: %v", playerID, err)
+			break
+		}
+	}
+
+	if !success {
+		results <- fmt.Sprintf("Player ID %s: Failed to redeem gift code after %d retries", playerID, maxRetries)
+	}
+}
+
+// RedeemGiftCode handles the API request to redeem a gift code.
+func (b *Bot) RedeemGiftCode(playerID, giftCode string) (bool, string, error) {
+	ctx := context.Background()
+
+	// Step 1: Log in the player
+	err := b.loginPlayer(ctx, playerID)
+	if err != nil {
+		return false, "", fmt.Errorf("login failed for player %s: %w", playerID, err)
+	}
+
+	// Step 2: Redeem the gift code
+	b.logger.Infof("Attempting to redeem gift code '%s' for player ID: %s", giftCode, playerID)
 	data := map[string]string{
 		"fid":  playerID,
 		"cdk":  giftCode,
@@ -32,30 +111,31 @@ func (b *Bot) ValidateGiftCode(giftCode, playerID string) (bool, string) {
 
 	signedData := b.appendSign(data)
 
-	resp, err := b.makeAPIRequest(context.Background(), "/gift_code", signedData)
+	resp, err := b.makeAPIRequest(ctx, "/gift_code", signedData)
 	if err != nil {
-		return false, fmt.Sprintf("API request failed: %v", err)
+		return false, "", fmt.Errorf("API request failed: %w", err)
 	}
 
 	errCode, ok := resp["err_code"].(float64)
 	if !ok {
-		return false, "Invalid error code format"
+		return false, "", fmt.Errorf("invalid error code format")
 	}
 
 	switch int(errCode) {
 	case 20000:
-		return true, "Gift code is valid"
+		return true, "Gift code redeemed successfully", nil
 	case 40014:
-		return false, "Gift Code not found"
+		return false, "Gift Code not found", nil
 	case 40007:
-		return false, "Expired, unable to claim"
+		return false, "Expired, unable to claim", nil
 	case 40008:
-		return false, "Gift code already claimed"
+		return false, "Gift code already claimed", nil
 	default:
-		return false, fmt.Sprintf("Unknown error: %v", resp["msg"])
+		return false, fmt.Sprintf("Unknown error: %v", resp["msg"]), nil
 	}
 }
 
+// appendSign appends a signature to the data for API requests.
 func (b *Bot) appendSign(data map[string]string) map[string]string {
 	var keys []string
 	for k := range data {
@@ -103,51 +183,7 @@ func (b *Bot) loginPlayer(ctx context.Context, playerID string) error {
 	return nil
 }
 
-// RedeemGiftCode handles the API request to redeem a gift code.
-func (b *Bot) RedeemGiftCode(playerID, giftCode string) (bool, string, error) {
-	ctx := context.Background()
-
-	// Step 1: Log in the player
-	err := b.loginPlayer(ctx, playerID)
-	if err != nil {
-		return false, "", fmt.Errorf("login failed for player %s: %w", playerID, err)
-	}
-
-	// Step 2: Redeem the gift code
-	b.logger.Infof("Attempting to redeem gift code '%s' for player ID: %s", giftCode, playerID)
-	data := map[string]string{
-		"fid":  playerID,
-		"cdk":  giftCode,
-		"time": fmt.Sprintf("%d", time.Now().UnixNano()/int64(time.Millisecond)),
-	}
-
-	signedData := b.appendSign(data)
-
-	resp, err := b.makeAPIRequest(ctx, "/gift_code", signedData)
-	if err != nil {
-		return false, "", fmt.Errorf("API request failed: %w", err)
-	}
-
-	errCode, ok := resp["err_code"].(float64)
-	if !ok {
-		return false, "", fmt.Errorf("invalid error code format")
-	}
-
-	switch int(errCode) {
-	case 20000:
-		return true, "Gift code redeemed successfully", nil
-	case 40014:
-		return false, "Gift Code not found", nil
-	case 40007:
-		return false, "Expired, unable to claim", nil
-	case 40008:
-		return false, "Gift code already claimed", nil
-	default:
-		return false, fmt.Sprintf("Unknown error: %v", resp["msg"]), nil
-	}
-}
-
-// Make an API request with the given endpoint and data.
+// makeAPIRequest makes an API request with the given endpoint and data.
 func (b *Bot) makeAPIRequest(ctx context.Context, endpoint string, data map[string]string) (map[string]interface{}, error) {
 	if b.logger == nil {
 		return nil, fmt.Errorf("logger is not initialized")
