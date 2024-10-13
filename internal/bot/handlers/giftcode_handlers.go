@@ -228,7 +228,7 @@ func handleGiftCodeValidateCommand(s *discordgo.Session, m *discordgo.MessageCre
 	}
 
 	if len(args) < 1 {
-		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Usage: %s", cmd.Usage))
+		bot.SendMessage(s, m.ChannelID, fmt.Sprintf("Usage: `%s`", cmd.Usage))
 		return
 	}
 

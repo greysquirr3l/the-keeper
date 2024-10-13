@@ -15,7 +15,7 @@ var welcomeMessageTemplate = `Welcome to the server, %s! 🎉
 I am ** The Keeper **, a bot.
 
 Please enter your Whiteout Survival PlayerID
-to take full advantage ofmy features.`
+to take full advantage of my features.`
 
 func init() {
 	bot.RegisterHandlerLater("handleWelcomeCommand", handleWelcomeCommand)
