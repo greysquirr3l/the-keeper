@@ -40,3 +40,5 @@ run_local.sh
 convert_players.sh
 players.txt
 railway.yaml
+.gitignore
+entrypoint.sh
