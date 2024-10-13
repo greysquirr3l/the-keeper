@@ -1,34 +1,36 @@
-// File: internal/bot/handlers/command_handlers_template.go
+// File: internal/bot/handlers/help_handlers.template.go
+
 package handlers
 
-//import (
-//	"the-keeper/internal/bot"
+import (
+	"fmt"
+	"the-keeper/internal/bot"
 
-//	"github.com/bwmarrin/discordgo"
-//)
+	"github.com/bwmarrin/discordgo"
+)
 
+// Commented out the initialization to prevent loading anything
 // func init() {
-func init() {
-	//	bot.GetBot().RegisterHandler("handleTermCommand", handleTermCommand)
-	//	bot.GetBot().RegisterHandler("handleTermAddCommand", handleTermAddCommand)
-	//	bot.GetBot().RegisterHandler("handleTermEditCommand", handleTermEditCommand)
-	//	bot.GetBot().RegisterHandler("handleTermRemoveCommand", handleTermRemoveCommand)
-	//	bot.GetBot().RegisterHandler("handleTermListCommand", handleTermListCommand)
-	//}
-	//bot.GetBot().RegisterHandler("handleCommandName", handleCommandName)
-	// Register any subcommand handlers here
-	// bot.RegisterHandler("handleCommandNameSubcommand", handleCommandNameSubcommand)
-	//}
+// 	bot.RegisterHandlerLater("handleHelpCommand", handleHelpCommand)
+// 	bot.RegisterHandlerLater("handleDumpDatabaseCommand", handleDumpDatabaseCommand) // New command registration
+// }
 
-	//func handleCommandName(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
-	// Implement main command logic here
-	//	bot.SendMessage(s, m.ChannelID, "Command not implemented yet.")
-	//}
+// Dummy function for handling help command, does not perform any operations
+func handleHelpCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
+	fmt.Println("Help command handler invoked (dummy function).")
+}
 
-	// Implement subcommand handlers if any
-	//
-	//	func handleCommandNameSubcommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
-	//	    // Implement subcommand logic here
-	//	    bot.SendMessage(s, m.ChannelID, "Subcommand not implemented yet.")
-	return
+// Dummy function to simulate sending general help
+func sendGeneralHelp(s *discordgo.Session, channelID string) {
+	fmt.Println("Sending general help (dummy function).")
+}
+
+// Dummy function to simulate sending specific command help
+func sendCommandHelp(s *discordgo.Session, channelID string, commandName string) {
+	fmt.Printf("Sending help for command: %s (dummy function).\n", commandName)
+}
+
+// Dummy function for dumping the database, does not perform any operations
+func handleDumpDatabaseCommand(s *discordgo.Session, m *discordgo.MessageCreate, args []string, cmd *bot.Command) {
+	fmt.Println("Dumping database (dummy function).")
 }

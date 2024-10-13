@@ -1,4 +1,7 @@
+# File: commands.template.yaml
+
 prefix: "!"
+
 commands:
   id:
     description: "Manage player IDs"
@@ -69,27 +72,32 @@ commands:
     usage: "!giftcode <subcommand> [arguments]"
     cooldown: "3s"
     handler: "handleGiftCodeCommand"
+    hidden: false
     subcommands:
       redeem:
         description: "Redeem a gift code"
         usage: "!giftcode redeem <GiftCode>"
         cooldown: "3s"
         handler: "handleGiftCodeRedeemCommand"
+        hidden: false
       deploy:
         description: "Deploy a gift code to all users (admin only)"
         usage: "!giftcode deploy <GiftCode>"
         cooldown: "30s"
         handler: "handleGiftCodeDeployCommand"
+        hidden: false
       validate:
         description: "Validate a gift code"
         usage: "!giftcode validate <GiftCode>"
         cooldown: "2s"
         handler: "handleGiftCodeValidateCommand"
+        hidden: false
       list:
         description: "List redeemed gift codes"
         usage: "!giftcode list [page]"
         cooldown: "10s"
         handler: "handleGiftCodeListCommand"
+        hidden: false
 
   scrape:
     description: "Manually trigger gift code scraping"
@@ -102,7 +110,7 @@ commands:
     description: "Show help information"
     usage: "!help [command]"
     cooldown: "3s"
-    handler: handleHelpCommand
+    handler: "handleHelpCommand"
     hidden: false
 
   dbdump:
@@ -114,7 +122,7 @@ commands:
 
   welcome:
     description: "Send welcome message to new user"
-    usage: "!welcome <discordID or @name"
+    usage: "!welcome <discordID or @name>"
     cooldown: "10s"
     handler: "handleWelcomeCommand"
     hidden: true

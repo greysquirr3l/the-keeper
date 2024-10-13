@@ -1,1 +1,65 @@
-// TODO: implement
+# File: config.template.yaml
+
+discord:
+  # Bot Token (Required)
+  token: ${DISCORD_BOT_TOKEN}  # Your Discord bot token
+
+  # Client ID and Secret (Required for OAuth2)
+  client_id: ${DISCORD_CLIENT_ID}  # Discord Client ID
+  client_secret: ${DISCORD_CLIENT_SECRET}  # Discord Client Secret
+
+  # Role ID for authorization (Optional)
+  RoleID: ${DISCORD_ROLE_ID}  # Role ID to restrict access to certain commands
+
+  # OAuth2 Redirect URL (Required for OAuth2)
+  redirect_url: ${RAILWAY_PUBLIC_DOMAIN}/oauth2/callback
+
+  # Enable or disable the Discord functionality
+  enabled: true  # Set to false to disable Discord bot functionality
+
+  # Command prefix for Discord commands
+  command_prefix: "!"  # Prefix for bot commands (e.g., !help)
+
+  # Channel ID for notification messages
+  notification_channel_id: ${DISCORD_NOTIFICATION_CHANNEL}
+
+server:
+  # Port for the web server
+  port: "8080"  # Default port for the server
+
+logging:
+  # Log level: trace, debug, info, warn, error, fatal, panic
+  log_level: "warn"  # Set the log level
+
+paths:
+  # Path to commands configuration file
+  commands_config: "configs/commands.yaml"  # Filepath to commands configuration
+
+database:
+  # Path for the database volume mount
+  volumeMountPath: "/app/data2"  # Path where the database volume is mounted
+
+  # Database name
+  name: "keeper.db"  # SQLite database filename
+
+gift_code:
+  # Salt for gift code generation
+  salt: "${GIFT_CODE_SALT}"  # Salt used for securing gift codes
+
+  # Minimum and maximum length for gift codes
+  min_length: 6  # Minimum length for a gift code
+  max_length: 12  # Maximum length for a gift code
+
+  # API endpoint for verifying gift codes
+  api_endpoint: "https://wos-giftcode-api.centurygame.com/api"  # URL for the gift code API
+  api_timeout: 30  # Timeout in seconds for the API request
+
+scrape:
+  # List of sites to scrape for gift codes
+  sites:
+    - name: "VG247"
+      url: "https://www.vg247.com/whiteout-survival-codes"
+      selector: "ul li strong"
+    - name: "Lootbar"
+      url: "https://lootbar.gg/blog/en/whiteout-survival-newest-codes.html"
+      selector: ".code-block"
