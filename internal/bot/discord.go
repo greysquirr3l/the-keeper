@@ -34,9 +34,14 @@ func InitDiscord(token string, logger *logrus.Logger) error {
 	discordSession.LogLevel = discordgo.LogDebug
 
 	discordLogger.Info("Setting up intents...")
+	// discordSession.Identify.Intents = discordgo.IntentsGuilds |
+	//	discordgo.IntentsGuildMessages |
+	//	discordgo.IntentsMessageContent
+
 	discordSession.Identify.Intents = discordgo.IntentsGuilds |
 		discordgo.IntentsGuildMessages |
-		discordgo.IntentsMessageContent
+		discordgo.IntentsMessageContent |
+		discordgo.IntentsDirectMessages
 
 	discordLogger.Info("Adding message handler...")
 	discordSession.AddHandler(messageCreate)

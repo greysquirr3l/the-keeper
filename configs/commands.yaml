@@ -111,3 +111,10 @@ commands:
     cooldown: "30s"
     handler: "handleDumpDatabaseCommand"
     hidden: true
+
+  welcome:
+    description: "Send welcome message to new user"
+    usage:  "!welcome <discordID or @name"
+    cooldown: "10s"
+    handler:  "handleWelcomeCommand"
+    hidden: true

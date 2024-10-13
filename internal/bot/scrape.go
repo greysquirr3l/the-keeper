@@ -13,6 +13,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+// Updated version of StartPeriodicScraping to only notify if new codes are found
 func (b *Bot) StartPeriodicScraping() {
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour) // Adjust the interval as needed
@@ -27,6 +28,8 @@ func (b *Bot) StartPeriodicScraping() {
 					b.GetLogger().WithError(err).Error("Error during periodic scraping")
 				} else {
 					b.GetLogger().WithField("results", results).Info("Periodic scraping completed")
+					// Notify only if there are new codes
+					b.notifyIfNewCodes(results)
 				}
 				cancel()
 			case <-b.ctx.Done():
@@ -70,15 +73,26 @@ func (b *Bot) ScrapeGiftCodes(ctx context.Context) ([]ScrapeResult, error) {
 		}
 	}
 
-	// Find new codes after scraping all sites
+	// Update the internal state with the new codes
 	newCodes := b.findNewCodes(results)
 	if len(newCodes) > 0 {
-		if err := b.notifyNewCodes(ctx, newCodes); err != nil {
-			b.GetLogger().WithError(err).Error("Error notifying new codes")
-		}
+		b.lastCheckedCodes = append(b.lastCheckedCodes, newCodes...) // Keep track of the new codes
 	}
 
 	return results, nil
+}
+
+// New function to notify if new codes were found
+func (b *Bot) notifyIfNewCodes(results []ScrapeResult) {
+	newCodes := b.findNewCodes(results)
+	if len(newCodes) > 0 {
+		b.GetLogger().Info("New gift codes found, notifying...")
+		if err := b.notifyNewCodes(context.Background(), newCodes); err != nil {
+			b.GetLogger().WithError(err).Error("Error notifying new codes")
+		}
+	} else {
+		b.GetLogger().Info("No new gift codes found. Skipping notification.")
+	}
 }
 
 func (b *Bot) scrapeSite(ctx context.Context, site ScrapeSite) ([]GiftCode, error) {
